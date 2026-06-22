@@ -204,3 +204,54 @@
 - Seed actualizado com dados de documentos e contactos
 - Variáveis de produção (.env.docker com valores reais)
 - Registo no control-plane actualizado
+
+## Actualização 2026-06-23 — fecho sessão 3
+
+### Completado nesta sessão
+
+#### Frontend
+- Editar cliente: edição inline com PATCH /api/clients/:id
+- Arquivar/desarquivar oportunidade: toggle no header da oportunidade
+
+#### Backend
+- PATCH /api/opps/:id aceita archived: boolean
+- Bloqueio de alterações manuais em estados terminais GANHA/PERDIDA
+
+#### Testes
+- routes.clients.test.js: cobertura de GET, POST, PATCH, GET/:id
+- routes.opps.test.js: cobertura de GET, POST, GET/:id, POST/:id/status, GET /dashboard
+- Total: 88 testes, 5 suites, todos a passar
+
+#### Infraestrutura
+- .env.docker criado com valores de produção (JWT_SECRET e CRM_DB_PASSWORD reais)
+- Docker validado end-to-end: build, migration automática, health check
+- docs/MIGRACAO_LEGACY.md: plano completo de migração com fases, backup, rollback
+
+#### Git
+- Commit 8435e72: acções de detalhe, formulários, testes
+- Commit 89cf443: editar cliente, arquivar opp, 88 testes, Docker validado, plano de migração
+
+### Decisões técnicas tomadas
+- Arquivar/desarquivar usa PATCH /api/opps/:id com `archived: boolean`, sem alterar schema.
+- Estados terminais GANHA/PERDIDA continuam bloqueados para alterações manuais de arquivo.
+- Testes de integração usam mocks de Prisma e transitions para não tocar na DB real.
+- Multi-empresa foi identificado como decisão arquitectural futura, sem implementação nesta sessão.
+
+### Estado no fim desta sessão
+- CRM operacionalmente completo para migração
+- Docker testado e funcional em produção
+- Plano de migração documentado e pronto a executar
+- 88 testes a passar
+
+### Pendente para próxima sessão (migração)
+- Executar MIGRACAO_LEGACY.md: backup, desligar legacy, apontar tráfego
+- Decidir: migrar dados legacy ou arrancar limpo
+- Actualizar CORS_ORIGIN para domínio de produção
+- Actualizar nginx/proxy para apontar para novo CRM
+
+### Funcionalidade futura prioritária identificada
+- Multi-empresa: o CRM precisa de suportar múltiplas empresas/organizações
+  com isolamento de dados, utilizadores e dashboard por empresa.
+  Impacto: schema (tenant_id em todas as tabelas), auth (JWT com empresa),
+  dashboard (agregações por empresa), UI (selector de empresa).
+  Decisão arquitectural antes de qualquer implementação.
