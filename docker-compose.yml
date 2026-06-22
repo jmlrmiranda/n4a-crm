@@ -1,0 +1,48 @@
+services:
+  n4a-crm-api:
+    build: ./api
+    container_name: n4a-crm-api
+    restart: unless-stopped
+    ports:
+      - "18080:3000"
+    environment:
+      DATABASE_URL: postgresql://crm:${CRM_DB_PASSWORD}@n4a-crm-db:5432/n4a_crm
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      PORT: 3000
+      UPLOAD_DIR: /app/uploads
+      CORS_ORIGIN: ${CORS_ORIGIN}
+    volumes:
+      - crm-uploads:/app/uploads
+    depends_on:
+      n4a-crm-db:
+        condition: service_healthy
+    networks:
+      - crm-net
+
+  n4a-crm-db:
+    image: postgres:16-alpine
+    container_name: n4a-crm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: n4a_crm
+      POSTGRES_USER: crm
+      POSTGRES_PASSWORD: ${CRM_DB_PASSWORD}
+    volumes:
+      - crm-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm -d n4a_crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crm-net
+    ports: []
+
+volumes:
+  crm-uploads:
+  crm-db-data:
+
+networks:
+  crm-net:
+    driver: bridge

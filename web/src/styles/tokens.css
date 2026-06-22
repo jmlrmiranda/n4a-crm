@@ -1,0 +1,35 @@
+:root {
+  /* backgrounds */
+  --n4a-bg-base: #0f0f0f;
+  --n4a-bg-surface: #1a1a1a;
+  --n4a-bg-surface-2: #141414;
+  --n4a-bg-input: #1e1e1e;
+  --n4a-bg-hover: #222222;
+
+  /* borders */
+  --n4a-border: #2a2a2a;
+  --n4a-border-focus: #444444;
+
+  /* text */
+  --n4a-text-primary: #ffffff;
+  --n4a-text-secondary: #888888;
+  --n4a-text-muted: #555555;
+
+  /* brand / accents */
+  --n4a-magenta: #e91e8c;
+  --n4a-magenta-hover: #c4186f;
+  --n4a-magenta-dim: rgba(233, 30, 140, 0.12);
+  --n4a-blue: #4fc3f7;
+
+  /* semantic */
+  --n4a-success: #4caf50;
+  --n4a-warning: #ff9800;
+  --n4a-danger: #f44336;
+  --n4a-info: #4fc3f7;
+
+  /* typography */
+  --n4a-font: 'Inter', -apple-system, sans-serif;
+  --n4a-radius-sm: 4px;
+  --n4a-radius-md: 8px;
+  --n4a-radius-lg: 12px;
+}

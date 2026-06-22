@@ -1,0 +1,59 @@
+.new-opp-modal {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.62);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 20;
+}
+
+.new-opp-modal__card {
+  max-height: calc(100vh - 48px);
+  max-width: 480px;
+  overflow-y: auto;
+  width: 100%;
+}
+
+.new-opp-modal__title {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
+  margin-bottom: 20px;
+}
+
+.new-opp-modal__label {
+  margin-top: 16px;
+}
+
+.new-opp-modal__textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.new-opp-modal__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.new-opp-modal__state,
+.new-opp-modal__error {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 160px;
+}
+
+.new-opp-modal__state {
+  color: var(--n4a-text-muted);
+}
+
+.new-opp-modal__error {
+  color: var(--n4a-danger);
+  font-size: 13px;
+  min-height: auto;
+  padding-top: 12px;
+}

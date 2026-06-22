@@ -1,0 +1,150 @@
+.pipeline-page {
+  display: grid;
+  gap: 20px;
+}
+
+.pipeline-page__header {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.pipeline-page__title {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.pipeline-page__count {
+  color: var(--n4a-text-secondary);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.pipeline-page__filters {
+  align-items: end;
+  display: flex;
+  gap: 18px;
+}
+
+.pipeline-page__filter {
+  width: 260px;
+}
+
+.pipeline-page__archive-toggle {
+  align-items: center;
+  color: var(--n4a-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 8px;
+  padding-bottom: 9px;
+}
+
+.pipeline-page__archive-toggle:hover {
+  color: var(--n4a-text-primary);
+}
+
+.pipeline-page__archive-toggle input {
+  accent-color: var(--n4a-magenta);
+}
+
+.pipeline-page__list {
+  background: var(--n4a-bg-surface);
+  border: 1px solid var(--n4a-border);
+  border-radius: var(--n4a-radius-md);
+  overflow: hidden;
+}
+
+.pipeline-page__state,
+.pipeline-page__error {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 220px;
+  padding: 24px;
+}
+
+.pipeline-page__state {
+  color: var(--n4a-text-muted);
+}
+
+.pipeline-page__error {
+  color: var(--n4a-danger);
+}
+
+.pipeline-card {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--n4a-border);
+  color: var(--n4a-text-primary);
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  text-align: left;
+  transition: background 0.15s;
+  width: 100%;
+}
+
+.pipeline-card:hover {
+  background: var(--n4a-bg-hover);
+}
+
+.pipeline-card:last-child {
+  border-bottom: none;
+}
+
+.pipeline-card__top {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.pipeline-card__identity {
+  align-items: baseline;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pipeline-card__number {
+  color: var(--n4a-text-muted);
+  flex: 0 0 auto;
+  font-size: 12px;
+}
+
+.pipeline-card__client {
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pipeline-card__meta,
+.pipeline-card__financials {
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 8px 18px;
+}
+
+.pipeline-card__meta {
+  color: var(--n4a-text-secondary);
+}
+
+.pipeline-card__meta span:last-child {
+  color: var(--n4a-text-muted);
+}
+
+.pipeline-card__financials {
+  color: var(--n4a-text-primary);
+}
+
+.pipeline-card__financials span:not(:first-child) {
+  color: var(--n4a-text-secondary);
+}

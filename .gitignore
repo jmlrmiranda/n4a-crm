@@ -1,0 +1,8 @@
+.env
+.env.docker
+node_modules/
+uploads/
+api/.env
+api/.env.docker
+api/node_modules/
+web/dist/

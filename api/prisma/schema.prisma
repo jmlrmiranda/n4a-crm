@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  VENDEDOR
+}
+
+enum SaleType {
+  PROJETO
+  SUBSCRICAO
+}
+
+enum OpportunityStatus {
+  ABERTA
+  PROPOSTA_EM_PREPARACAO
+  PROPOSTA_ENVIADA
+  NEGOCIACAO
+  GANHA
+  PERDIDA
+}
+
+enum AttachmentType {
+  PROPOSTA
+  COMPRA
+  FATURA
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  opportunities Opportunity[] @relation("SellerOpps")
+
+  @@index([role])
+  @@index([isActive])
+}
+
+model Client {
+  id              String   @id @default(cuid())
+  clientNo        String   @unique
+  name            String
+  address         String?
+  description     String?
+  nif             String
+  responsibleName String
+  email           String
+  phone           String
+  createdAt       DateTime @default(now())
+
+  opportunities Opportunity[]
+
+  @@index([createdAt])
+  @@index([nif])
+}
+
+model Opportunity {
+  id           String            @id @default(cuid())
+  oppNo        String            @unique
+  clientId     String
+  sellerUserId String
+  saleType     SaleType
+  status       OpportunityStatus @default(ABERTA)
+  archived     Boolean           @default(false)
+  lossReason   String?
+
+  estServices     Decimal @default(0) @db.Decimal(12, 2)
+  estSoftware     Decimal @default(0) @db.Decimal(12, 2)
+  estHardware     Decimal @default(0) @db.Decimal(12, 2)
+  estMaintenance  Decimal @default(0) @db.Decimal(12, 2)
+  finalServices   Decimal @default(0) @db.Decimal(12, 2)
+  finalSoftware   Decimal @default(0) @db.Decimal(12, 2)
+  finalHardware   Decimal @default(0) @db.Decimal(12, 2)
+  finalMaintenance Decimal @default(0) @db.Decimal(12, 2)
+  estCostPrice    Decimal @default(0) @db.Decimal(12, 2)
+  realCostPrice   Decimal @default(0) @db.Decimal(12, 2)
+
+  expectedCloseDate DateTime?
+  billingStartDate  DateTime?
+  proposalSentDate  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  seller User   @relation("SellerOpps", fields: [sellerUserId], references: [id], onDelete: Restrict)
+
+  attachments   Attachment[]
+  contacts      Contact[]
+  statusHistory OpportunityStatusHistory[] @relation("OppStatusHistory")
+
+  @@index([clientId])
+  @@index([sellerUserId])
+  @@index([status])
+  @@index([archived])
+  @@index([updatedAt])
+  @@index([expectedCloseDate])
+}
+
+model OpportunityStatusHistory {
+  id         String             @id @default(cuid())
+  oppId      String
+  fromStatus OpportunityStatus?
+  toStatus   OpportunityStatus
+  note       String?
+  changedBy  String
+  createdAt  DateTime           @default(now())
+
+  opportunity Opportunity @relation("OppStatusHistory", fields: [oppId], references: [id], onDelete: Cascade)
+
+  @@index([oppId])
+  @@index([createdAt])
+  @@index([toStatus])
+}
+
+model Attachment {
+  id         String         @id @default(cuid())
+  oppId      String
+  type       AttachmentType
+  filename   String
+  path       String
+  adjudicada Boolean        @default(false)
+  uploadedAt DateTime       @default(now())
+
+  opportunity Opportunity @relation(fields: [oppId], references: [id], onDelete: Cascade)
+
+  @@index([oppId])
+  @@index([oppId, type])
+}
+
+model Contact {
+  id      String   @id @default(cuid())
+  oppId   String
+  date    DateTime
+  channel String
+  note    String
+
+  opportunity Opportunity @relation(fields: [oppId], references: [id], onDelete: Cascade)
+
+  @@index([oppId])
+  @@index([date])
+}

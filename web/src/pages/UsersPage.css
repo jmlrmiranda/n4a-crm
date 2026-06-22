@@ -1,0 +1,52 @@
+.users-page {
+  display: grid;
+  gap: 20px;
+}
+
+.users-page__header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.users-page__title {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.users-page__table-card {
+  overflow-x: auto;
+  padding: 0;
+}
+
+.users-page__action {
+  padding: 5px 10px;
+}
+
+.users-page__active {
+  color: var(--n4a-success);
+  font-weight: 500;
+}
+
+.users-page__inactive {
+  color: var(--n4a-danger);
+  font-weight: 500;
+}
+
+.users-page__state,
+.users-page__error {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 220px;
+  padding: 24px;
+}
+
+.users-page__state {
+  color: var(--n4a-text-muted);
+}
+
+.users-page__error {
+  color: var(--n4a-danger);
+}

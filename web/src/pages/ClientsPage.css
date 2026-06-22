@@ -1,0 +1,48 @@
+.clients-page {
+  display: grid;
+  gap: 20px;
+}
+
+.clients-page__header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.clients-page__title {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.clients-page__count {
+  color: var(--n4a-text-secondary);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.clients-page__table-card {
+  overflow-x: auto;
+  padding: 0;
+}
+
+.clients-page__action {
+  padding: 5px 10px;
+}
+
+.clients-page__state,
+.clients-page__error {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 260px;
+  padding: 24px;
+}
+
+.clients-page__state {
+  color: var(--n4a-text-muted);
+}
+
+.clients-page__error {
+  color: var(--n4a-danger);
+}
