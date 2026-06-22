@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client.js'
+import { useAuth } from '../contexts/AuthContext.jsx'
 import './ClientPage.css'
 
 const moneyFormatter = new Intl.NumberFormat('pt-PT', {
@@ -36,12 +37,29 @@ function ClientField({ label, value }) {
   )
 }
 
+function buildClientForm(client) {
+  return {
+    address: client.address || '',
+    description: client.description || '',
+    email: client.email || '',
+    name: client.name || '',
+    nif: client.nif || '',
+    phone: client.phone || '',
+    responsibleName: client.responsibleName || '',
+  }
+}
+
 function ClientPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [client, setClient] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [clientEditing, setClientEditing] = useState(false)
+  const [clientForm, setClientForm] = useState(null)
+  const [clientSaving, setClientSaving] = useState(false)
+  const [clientEditError, setClientEditError] = useState('')
 
   useEffect(() => {
     let ignore = false
@@ -106,6 +124,54 @@ function ClientPage() {
     }
   }, [id])
 
+  function openClientEdit() {
+    setClientForm(buildClientForm(client))
+    setClientEditError('')
+    setClientEditing(true)
+  }
+
+  function updateClientField(field, value) {
+    setClientForm((current) => ({ ...current, [field]: value }))
+  }
+
+  async function handleClientSubmit(event) {
+    event.preventDefault()
+    setClientEditError('')
+
+    const requiredFields = ['email', 'name', 'nif', 'phone', 'responsibleName']
+
+    if (requiredFields.some((field) => !clientForm[field].trim())) {
+      setClientEditError('Preenche todos os campos obrigatórios.')
+      return
+    }
+
+    setClientSaving(true)
+
+    try {
+      const { data } = await api.patch(`/api/clients/${id}`, {
+        address: clientForm.address.trim() || null,
+        description: clientForm.description.trim() || null,
+        email: clientForm.email.trim(),
+        name: clientForm.name.trim(),
+        nif: clientForm.nif.trim(),
+        phone: clientForm.phone.trim(),
+        responsibleName: clientForm.responsibleName.trim(),
+      })
+
+      setClient((current) => ({
+        ...current,
+        ...data,
+        opportunities: current.opportunities || [],
+      }))
+      setClientEditing(false)
+      setClientForm(null)
+    } catch {
+      setClientEditError('Não foi possível actualizar o cliente.')
+    } finally {
+      setClientSaving(false)
+    }
+  }
+
   if (loading) {
     return <div className="client-page__state">A carregar...</div>
   }
@@ -117,6 +183,8 @@ function ClientPage() {
   if (!client) {
     return <div className="client-page__state">Sem cliente</div>
   }
+
+  const isAdmin = user?.role === 'ADMIN'
 
   return (
     <section className="client-page">
@@ -130,29 +198,132 @@ function ClientPage() {
       </header>
 
       <section className="n4a-card">
-        <h1 className="client-page__title">{client.name}</h1>
-        <dl className="client-page__fields">
-          <ClientField label="NIF" value={client.nif} />
-          <ClientField label="Responsável" value={client.responsibleName} />
-          <ClientField label="Email" value={client.email} />
-          <ClientField label="Telefone" value={client.phone} />
-        </dl>
+        <div className="client-page__card-header">
+          <h1 className="client-page__title">{client.name}</h1>
+          {isAdmin && !clientEditing && (
+            <button className="n4a-btn n4a-btn--ghost" onClick={openClientEdit} type="button">
+              Editar
+            </button>
+          )}
+        </div>
 
-        {(client.address || client.description) && (
-          <div className="client-page__notes">
-            {client.address && (
-              <div>
-                <span>Morada</span>
-                <p>{client.address}</p>
+        {clientEditing && clientForm ? (
+          <form className="client-page__form" onSubmit={handleClientSubmit}>
+            <div className="client-page__form-grid">
+              <label>
+                <span className="n4a-label">Nome</span>
+                <input
+                  className="n4a-input"
+                  onChange={(event) => updateClientField('name', event.target.value)}
+                  required
+                  value={clientForm.name}
+                />
+              </label>
+              <label>
+                <span className="n4a-label">NIF</span>
+                <input
+                  className="n4a-input"
+                  onChange={(event) => updateClientField('nif', event.target.value)}
+                  required
+                  value={clientForm.nif}
+                />
+              </label>
+              <label>
+                <span className="n4a-label">Responsável</span>
+                <input
+                  className="n4a-input"
+                  onChange={(event) =>
+                    updateClientField('responsibleName', event.target.value)
+                  }
+                  required
+                  value={clientForm.responsibleName}
+                />
+              </label>
+              <label>
+                <span className="n4a-label">Email</span>
+                <input
+                  className="n4a-input"
+                  onChange={(event) => updateClientField('email', event.target.value)}
+                  required
+                  type="email"
+                  value={clientForm.email}
+                />
+              </label>
+              <label>
+                <span className="n4a-label">Telefone</span>
+                <input
+                  className="n4a-input"
+                  onChange={(event) => updateClientField('phone', event.target.value)}
+                  required
+                  value={clientForm.phone}
+                />
+              </label>
+              <label>
+                <span className="n4a-label">Morada</span>
+                <input
+                  className="n4a-input"
+                  onChange={(event) => updateClientField('address', event.target.value)}
+                  value={clientForm.address}
+                />
+              </label>
+            </div>
+
+            <label>
+              <span className="n4a-label">Descrição</span>
+              <textarea
+                className="n4a-input client-page__textarea"
+                onChange={(event) => updateClientField('description', event.target.value)}
+                value={clientForm.description}
+              />
+            </label>
+
+            {clientEditError && (
+              <div className="client-page__form-error">{clientEditError}</div>
+            )}
+
+            <div className="client-page__form-actions">
+              <button className="n4a-btn n4a-btn--primary" disabled={clientSaving} type="submit">
+                {clientSaving ? 'A guardar...' : 'Guardar'}
+              </button>
+              <button
+                className="n4a-btn n4a-btn--ghost"
+                disabled={clientSaving}
+                onClick={() => {
+                  setClientEditing(false)
+                  setClientForm(null)
+                }}
+                type="button"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <dl className="client-page__fields">
+              <ClientField label="NIF" value={client.nif} />
+              <ClientField label="Responsável" value={client.responsibleName} />
+              <ClientField label="Email" value={client.email} />
+              <ClientField label="Telefone" value={client.phone} />
+            </dl>
+
+            {(client.address || client.description) && (
+              <div className="client-page__notes">
+                {client.address && (
+                  <div>
+                    <span>Morada</span>
+                    <p>{client.address}</p>
+                  </div>
+                )}
+                {client.description && (
+                  <div>
+                    <span>Descrição</span>
+                    <p>{client.description}</p>
+                  </div>
+                )}
               </div>
             )}
-            {client.description && (
-              <div>
-                <span>Descrição</span>
-                <p>{client.description}</p>
-              </div>
-            )}
-          </div>
+          </>
         )}
       </section>
 

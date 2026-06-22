@@ -208,6 +208,8 @@ function OpportunityPage() {
   const [uploadSaving, setUploadSaving] = useState(false)
   const [adjudicatingAttachmentId, setAdjudicatingAttachmentId] = useState('')
   const [adjudicateError, setAdjudicateError] = useState('')
+  const [archiveSaving, setArchiveSaving] = useState(false)
+  const [archiveError, setArchiveError] = useState('')
 
   useEffect(() => {
     let ignore = false
@@ -450,6 +452,23 @@ function OpportunityPage() {
     }
   }
 
+  async function handleArchiveToggle() {
+    setArchiveError('')
+    setArchiveSaving(true)
+
+    try {
+      const { data } = await api.patch(`/api/opps/${id}`, {
+        archived: !opportunity.archived,
+      })
+
+      setOpportunity(data)
+    } catch {
+      setArchiveError('Não foi possível actualizar o arquivo da oportunidade.')
+    } finally {
+      setArchiveSaving(false)
+    }
+  }
+
   if (loading) {
     return <div className="opportunity-page__state">A carregar...</div>
   }
@@ -465,6 +484,7 @@ function OpportunityPage() {
   const meta = getStatusMeta(opportunity.status)
   const availableTransitions = statusTransitions[opportunity.status] || []
   const canAdvanceStatus = availableTransitions.length > 0
+  const canToggleArchive = !['GANHA', 'PERDIDA'].includes(opportunity.status)
   const showFinalFinancialInputs = shouldEditFinalFinancials(opportunity)
   const editEstSellPrice = financialForm
     ? sumFinancialFields(financialForm, [
@@ -523,8 +543,24 @@ function OpportunityPage() {
               Avançar estado
             </button>
           )}
+          {canToggleArchive && (
+            <button
+              className="n4a-btn n4a-btn--ghost"
+              disabled={archiveSaving}
+              onClick={handleArchiveToggle}
+              type="button"
+            >
+              {archiveSaving
+                ? 'A actualizar...'
+                : opportunity.archived
+                  ? 'Desarquivar'
+                  : 'Arquivar'}
+            </button>
+          )}
         </div>
       </header>
+
+      {archiveError && <div className="opportunity-page__form-error">{archiveError}</div>}
 
       {transitionOpen && (
         <section className="n4a-card opportunity-page__inline-panel">

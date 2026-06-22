@@ -161,3 +161,46 @@
 - Verificação de secrets em `api/src` encontrou apenas referências de fluxo auth e passwords demo em `api/src/seed.js`; a decisão sobre mover passwords demo para env continua pendente.
 - Legacy continua a correr em /Users/server/atlas/platform/n4a-crm e não foi alterado.
 - Próxima sessão deve começar por `docs/SESSAO_ABRIR.md`.
+
+## Actualização 2026-06-23 — fecho sessão 2
+
+### Completado nesta sessão
+
+#### Backend
+- GET /api/clients/:id com oportunidades (alinha com UI)
+
+#### Frontend — acções do detalhe de oportunidade
+- Transições de estado com painel inline, nota, motivo de perda obrigatório
+- Edição inline de valores financeiros com recálculo em tempo real
+- Upload de documentos PDF com tipo PROPOSTA/COMPRA/FATURA
+- Adicionar contacto com formulário inline
+
+#### Frontend — novas funcionalidades
+- Modal de criar cliente
+- Modal de criar utilizador
+- Adjudicar proposta com badge Adjudicada em magenta
+- Porta Vite fixada em 5173 (strictPort: true)
+
+#### Infraestrutura
+- git init + primeiro commit (dcaf1b8, 67 ficheiros)
+- .gitignore na raiz cobre node_modules, .env, .env.docker, uploads, web/dist
+
+### Decisões técnicas tomadas
+- Mantidos modais React sem bibliotecas externas, reutilizando o estilo visual do NewOppModal.
+- As acções novas actualizam estado local quando possível, evitando reload completo da página.
+- Vite fica fixo em 5173 para manter CORS estável com a API.
+- `CORS_ORIGIN` local da API fica em `http://localhost:5173`.
+
+### Estado no fim desta sessão
+- CRM operacionalmente funcional end-to-end
+- Backend versionado no git
+- Todas as acções core disponíveis na UI
+- CORS_ORIGIN da API deve ficar em localhost:5173 permanentemente
+- Testes executados no fecho: 53 passed, 53 total
+
+### Pendente para próxima sessão
+- Editar cliente (UI — API existe)
+- Testes de integração para as novas routes (clients, opps)
+- Seed actualizado com dados de documentos e contactos
+- Variáveis de produção (.env.docker com valores reais)
+- Registo no control-plane actualizado

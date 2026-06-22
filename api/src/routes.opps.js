@@ -158,6 +158,10 @@ async function findVisibleOpp(id, user, select) {
 }
 
 function parseBoolean(value) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
   if (value === "true") {
     return true;
   }
@@ -354,7 +358,7 @@ router.get("/:id", async (req, res, next) => {
 
 router.patch("/:id", async (req, res, next) => {
   try {
-    const existing = await findVisibleOpp(req.params.id, req.user, { id: true });
+    const existing = await findVisibleOpp(req.params.id, req.user, { id: true, status: true });
 
     if (!existing) {
       return res.status(404).json({ error: "Not found" });
@@ -362,9 +366,15 @@ router.patch("/:id", async (req, res, next) => {
 
     const body = req.body || {};
     const data = {};
+    const updatesArchived = Object.prototype.hasOwnProperty.call(body, "archived");
+
+    if (updatesArchived && ["GANHA", "PERDIDA"].includes(existing.status)) {
+      return res.status(422).json({ error: "archived_locked_for_terminal_status" });
+    }
 
     assignIfPresent(data, body, "expectedCloseDate", parseDateValue);
     assignIfPresent(data, body, "billingStartDate", parseDateValue);
+    assignIfPresent(data, body, "archived", parseBoolean);
     assignIfPresent(data, body, "estServices", parseDecimalValue);
     assignIfPresent(data, body, "estSoftware", parseDecimalValue);
     assignIfPresent(data, body, "estHardware", parseDecimalValue);
@@ -394,6 +404,10 @@ router.patch("/:id", async (req, res, next) => {
 
     if (err.message === "invalid_decimal") {
       return res.status(400).json({ error: "valor decimal inválido" });
+    }
+
+    if (err.message === "invalid_boolean") {
+      return res.status(400).json({ error: "archived deve ser true ou false" });
     }
 
     return handlePrismaError(err, res, next);
