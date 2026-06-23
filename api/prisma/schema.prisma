@@ -10,6 +10,8 @@ datasource db {
 enum Role {
   ADMIN
   VENDEDOR
+  N4A_SUPPORT
+  N4A_ADMIN
 }
 
 enum SaleType {
@@ -32,8 +34,23 @@ enum AttachmentType {
   FATURA
 }
 
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users         User[]
+  clients       Client[]
+  opportunities Opportunity[]
+
+  @@index([isActive])
+}
+
 model User {
   id           String   @id @default(cuid())
+  companyId    String
   name         String
   email        String   @unique
   passwordHash String
@@ -41,14 +58,17 @@ model User {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
   opportunities Opportunity[] @relation("SellerOpps")
 
+  @@index([companyId])
   @@index([role])
   @@index([isActive])
 }
 
 model Client {
   id              String   @id @default(cuid())
+  companyId       String
   clientNo        String   @unique
   name            String
   address         String?
@@ -59,14 +79,17 @@ model Client {
   phone           String
   createdAt       DateTime @default(now())
 
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
   opportunities Opportunity[]
 
+  @@index([companyId])
   @@index([createdAt])
   @@index([nif])
 }
 
 model Opportunity {
   id           String            @id @default(cuid())
+  companyId    String
   oppNo        String            @unique
   clientId     String
   sellerUserId String
@@ -75,16 +98,16 @@ model Opportunity {
   archived     Boolean           @default(false)
   lossReason   String?
 
-  estServices     Decimal @default(0) @db.Decimal(12, 2)
-  estSoftware     Decimal @default(0) @db.Decimal(12, 2)
-  estHardware     Decimal @default(0) @db.Decimal(12, 2)
-  estMaintenance  Decimal @default(0) @db.Decimal(12, 2)
-  finalServices   Decimal @default(0) @db.Decimal(12, 2)
-  finalSoftware   Decimal @default(0) @db.Decimal(12, 2)
-  finalHardware   Decimal @default(0) @db.Decimal(12, 2)
+  estServices      Decimal @default(0) @db.Decimal(12, 2)
+  estSoftware      Decimal @default(0) @db.Decimal(12, 2)
+  estHardware      Decimal @default(0) @db.Decimal(12, 2)
+  estMaintenance   Decimal @default(0) @db.Decimal(12, 2)
+  finalServices    Decimal @default(0) @db.Decimal(12, 2)
+  finalSoftware    Decimal @default(0) @db.Decimal(12, 2)
+  finalHardware    Decimal @default(0) @db.Decimal(12, 2)
   finalMaintenance Decimal @default(0) @db.Decimal(12, 2)
-  estCostPrice    Decimal @default(0) @db.Decimal(12, 2)
-  realCostPrice   Decimal @default(0) @db.Decimal(12, 2)
+  estCostPrice     Decimal @default(0) @db.Decimal(12, 2)
+  realCostPrice    Decimal @default(0) @db.Decimal(12, 2)
 
   expectedCloseDate DateTime?
   billingStartDate  DateTime?
@@ -93,13 +116,15 @@ model Opportunity {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  seller User   @relation("SellerOpps", fields: [sellerUserId], references: [id], onDelete: Restrict)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  seller  User    @relation("SellerOpps", fields: [sellerUserId], references: [id], onDelete: Restrict)
 
   attachments   Attachment[]
   contacts      Contact[]
   statusHistory OpportunityStatusHistory[] @relation("OppStatusHistory")
 
+  @@index([companyId])
   @@index([clientId])
   @@index([sellerUserId])
   @@index([status])

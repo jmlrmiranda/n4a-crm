@@ -38,6 +38,14 @@
   font-weight: 500;
 }
 
+.crm-shell__brand-company {
+  color: var(--n4a-text-secondary);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .crm-shell__user {
   align-items: center;
   display: inline-flex;
@@ -51,6 +59,33 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.crm-shell__company-label {
+  color: var(--n4a-text-secondary);
+  font-size: 12px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crm-shell__company-select {
+  background: var(--n4a-bg-input);
+  border: 1px solid var(--n4a-border);
+  border-radius: var(--n4a-radius-sm);
+  color: var(--n4a-text-secondary);
+  font: inherit;
+  font-size: 12px;
+  height: 28px;
+  max-width: 200px;
+  min-width: 120px;
+  padding: 0 8px;
+}
+
+.crm-shell__company-select:focus {
+  border-color: var(--n4a-border-focus);
+  outline: none;
 }
 
 .crm-shell__logout {

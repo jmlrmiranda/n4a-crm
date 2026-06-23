@@ -255,3 +255,25 @@
   Impacto: schema (tenant_id em todas as tabelas), auth (JWT com empresa),
   dashboard (agregações por empresa), UI (selector de empresa).
   Decisão arquitectural antes de qualquer implementação.
+
+## Actualização 2026-06-23 — multi-empresa
+
+### Completado
+- ADR-CRM-003: modelo multi-empresa documentado e aprovado
+- Schema: Company, companyId em User/Client/Opportunity,
+  roles N4A_SUPPORT e N4A_ADMIN
+- Migration: 20260623072538_add_multi_tenant aplicada
+- API: requireTenant, switch-company, /admin/companies
+- Seed: 2 companies (N4A + Cliente Demo), Support User
+- UI: empresa activa no header, dropdown para N4A_SUPPORT
+- 97 testes a passar
+- Isolamento validado end-to-end no browser
+
+### Estado
+- Multi-empresa funcional e testado
+- Pronto para migração do legacy
+- Migração cria company N4A e associa todos os dados existentes
+
+### Próxima sessão
+- Executar docs/MIGRACAO_LEGACY.md
+- Decidir: migrar dados legacy ou arrancar limpo

@@ -11,6 +11,7 @@ if (!JWT_SECRET) {
 }
 
 function signToken(payload) {
+  // Authenticated app tokens must include companyId for tenant-scoped routes.
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
 

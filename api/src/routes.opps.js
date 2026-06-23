@@ -25,6 +25,7 @@ const attachmentTypes = ["PROPOSTA", "COMPRA", "FATURA"];
 
 const oppListSelect = {
   id: true,
+  companyId: true,
   oppNo: true,
   clientId: true,
   sellerUserId: true,
@@ -140,8 +141,12 @@ function isVendor(user) {
   return user && user.role === "VENDEDOR";
 }
 
-function visibleOppWhere(id, user) {
-  const where = { id };
+function canAssignSeller(user) {
+  return user && ["ADMIN", "N4A_SUPPORT"].includes(user.role);
+}
+
+function visibleOppWhere(id, user, companyId) {
+  const where = { id, companyId };
 
   if (isVendor(user)) {
     where.sellerUserId = user.sub;
@@ -150,9 +155,9 @@ function visibleOppWhere(id, user) {
   return where;
 }
 
-async function findVisibleOpp(id, user, select) {
+async function findVisibleOpp(id, user, companyId, select) {
   return prisma.opportunity.findFirst({
-    where: visibleOppWhere(id, user),
+    where: visibleOppWhere(id, user, companyId),
     select
   });
 }
@@ -215,8 +220,8 @@ function assignIfPresent(data, body, field, parser) {
   }
 }
 
-async function nextOppNo() {
-  const count = await prisma.opportunity.count();
+async function nextOppNo(companyId) {
+  const count = await prisma.opportunity.count({ where: { companyId } });
   return `O${String(count + 1).padStart(5, "0")}`;
 }
 
@@ -232,7 +237,7 @@ function uploadFile(req, res, next) {
 
 router.get("/", async (req, res, next) => {
   try {
-    const where = {};
+    const where = { companyId: req.companyId };
     const { status, archived, sellerId, clientId } = req.query;
 
     if (status) {
@@ -286,8 +291,11 @@ router.post("/", async (req, res, next) => {
       return res.status(400).json({ error: "saleType inválido" });
     }
 
-    const client = await prisma.client.findUnique({
-      where: { id: clientId },
+    const client = await prisma.client.findFirst({
+      where: {
+        id: clientId,
+        companyId: req.companyId
+      },
       select: { id: true }
     });
 
@@ -295,10 +303,26 @@ router.post("/", async (req, res, next) => {
       return res.status(404).json({ error: "Not found" });
     }
 
+    const sellerUserId = canAssignSeller(req.user) && body.sellerUserId ? body.sellerUserId : req.user.sub;
+
+    const seller = await prisma.user.findFirst({
+      where: {
+        id: sellerUserId,
+        companyId: req.companyId,
+        isActive: true
+      },
+      select: { id: true }
+    });
+
+    if (!seller) {
+      return res.status(404).json({ error: "Not found" });
+    }
+
     const data = {
-      oppNo: await nextOppNo(),
+      companyId: req.companyId,
+      oppNo: await nextOppNo(req.companyId),
       clientId,
-      sellerUserId: req.user.role === "ADMIN" && body.sellerUserId ? body.sellerUserId : req.user.sub,
+      sellerUserId,
       saleType,
       status: "ABERTA"
     };
@@ -344,7 +368,7 @@ router.post("/", async (req, res, next) => {
 
 router.get("/:id", async (req, res, next) => {
   try {
-    const opportunity = await findVisibleOpp(req.params.id, req.user, oppDetailSelect);
+    const opportunity = await findVisibleOpp(req.params.id, req.user, req.companyId, oppDetailSelect);
 
     if (!opportunity) {
       return res.status(404).json({ error: "Not found" });
@@ -358,7 +382,7 @@ router.get("/:id", async (req, res, next) => {
 
 router.patch("/:id", async (req, res, next) => {
   try {
-    const existing = await findVisibleOpp(req.params.id, req.user, { id: true, status: true });
+    const existing = await findVisibleOpp(req.params.id, req.user, req.companyId, { id: true, status: true });
 
     if (!existing) {
       return res.status(404).json({ error: "Not found" });
@@ -390,11 +414,16 @@ router.patch("/:id", async (req, res, next) => {
       data.lossReason = body.lossReason;
     }
 
-    const opportunity = await prisma.opportunity.update({
-      where: { id: req.params.id },
-      data,
-      select: oppDetailSelect
+    const result = await prisma.opportunity.updateMany({
+      where: visibleOppWhere(req.params.id, req.user, req.companyId),
+      data
     });
+
+    if (result.count === 0) {
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    const opportunity = await findVisibleOpp(req.params.id, req.user, req.companyId, oppDetailSelect);
 
     return res.json(serializeOpp(opportunity));
   } catch (err) {
@@ -426,7 +455,7 @@ router.post("/:id/status", async (req, res, next) => {
       return res.status(400).json({ error: "lossReason é obrigatório" });
     }
 
-    const existing = await findVisibleOpp(req.params.id, req.user, { id: true });
+    const existing = await findVisibleOpp(req.params.id, req.user, req.companyId, { id: true });
 
     if (!existing) {
       return res.status(404).json({ error: "Not found" });
@@ -439,13 +468,11 @@ router.post("/:id/status", async (req, res, next) => {
       req.user.sub,
       req.user.name,
       note,
-      lossReason
+      lossReason,
+      req.companyId
     );
 
-    const opportunity = await prisma.opportunity.findUnique({
-      where: { id: req.params.id },
-      select: oppDetailSelect
-    });
+    const opportunity = await findVisibleOpp(req.params.id, req.user, req.companyId, oppDetailSelect);
 
     return res.json(serializeOpp(opportunity));
   } catch (err) {
@@ -463,7 +490,7 @@ router.post("/:id/status", async (req, res, next) => {
 
 router.post("/:id/contacts", async (req, res, next) => {
   try {
-    const existing = await findVisibleOpp(req.params.id, req.user, { id: true });
+    const existing = await findVisibleOpp(req.params.id, req.user, req.companyId, { id: true });
 
     if (!existing) {
       return res.status(404).json({ error: "Not found" });
@@ -503,7 +530,7 @@ router.post("/:id/contacts", async (req, res, next) => {
 
 router.get("/:id/contacts", async (req, res, next) => {
   try {
-    const existing = await findVisibleOpp(req.params.id, req.user, { id: true });
+    const existing = await findVisibleOpp(req.params.id, req.user, req.companyId, { id: true });
 
     if (!existing) {
       return res.status(404).json({ error: "Not found" });
@@ -523,7 +550,7 @@ router.get("/:id/contacts", async (req, res, next) => {
 
 router.post("/:id/attachments", async (req, res, next) => {
   try {
-    const existing = await findVisibleOpp(req.params.id, req.user, { id: true });
+    const existing = await findVisibleOpp(req.params.id, req.user, req.companyId, { id: true });
 
     if (!existing) {
       return res.status(404).json({ error: "Not found" });
@@ -579,6 +606,12 @@ router.post("/:id/attachments", async (req, res, next) => {
 
 router.patch("/:id/attachments/:attId/adjudicar", requireAdmin, async (req, res, next) => {
   try {
+    const existing = await findVisibleOpp(req.params.id, req.user, req.companyId, { id: true });
+
+    if (!existing) {
+      return res.status(404).json({ error: "Not found" });
+    }
+
     const attachment = await prisma.attachment.findFirst({
       where: {
         id: req.params.attId,
@@ -620,7 +653,7 @@ router.patch("/:id/attachments/:attId/adjudicar", requireAdmin, async (req, res,
 
 router.get("/:id/attachments", async (req, res, next) => {
   try {
-    const existing = await findVisibleOpp(req.params.id, req.user, { id: true });
+    const existing = await findVisibleOpp(req.params.id, req.user, req.companyId, { id: true });
 
     if (!existing) {
       return res.status(404).json({ error: "Not found" });

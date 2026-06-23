@@ -24,6 +24,7 @@ const DECIMAL_FIELDS = [
 
 const pipelineSelect = {
   id: true,
+  companyId: true,
   saleType: true,
   sellerUserId: true,
   estServices: true,
@@ -40,6 +41,7 @@ const pipelineSelect = {
 
 const wonSelect = {
   id: true,
+  companyId: true,
   saleType: true,
   sellerUserId: true,
   finalServices: true,
@@ -57,6 +59,7 @@ const wonSelect = {
 
 const lostSelect = {
   id: true,
+  companyId: true,
   saleType: true,
   sellerUserId: true,
   seller: {
@@ -69,6 +72,7 @@ const lostSelect = {
 
 const forecastSelect = {
   id: true,
+  companyId: true,
   status: true,
   expectedCloseDate: true,
   estServices: true,
@@ -79,6 +83,7 @@ const forecastSelect = {
 
 const groupSelect = {
   id: true,
+  companyId: true,
   status: true,
   saleType: true,
   sellerUserId: true,
@@ -196,11 +201,15 @@ router.get("/", async (req, res, next) => {
       byTypeOpps
     ] = await Promise.all([
       prisma.opportunity.findMany({
-        where: { status: { in: ACTIVE_STATUSES } },
+        where: {
+          companyId: req.companyId,
+          status: { in: ACTIVE_STATUSES }
+        },
         select: pipelineSelect
       }),
       prisma.opportunity.findMany({
         where: {
+          companyId: req.companyId,
           status: "GANHA",
           updatedAt: { gte: twelveMonthsAgo }
         },
@@ -208,6 +217,7 @@ router.get("/", async (req, res, next) => {
       }),
       prisma.opportunity.findMany({
         where: {
+          companyId: req.companyId,
           status: "PERDIDA",
           updatedAt: { gte: twelveMonthsAgo }
         },
@@ -215,6 +225,7 @@ router.get("/", async (req, res, next) => {
       }),
       prisma.opportunity.findMany({
         where: {
+          companyId: req.companyId,
           status: { in: FORECAST_STATUSES },
           expectedCloseDate: {
             gte: now,
@@ -225,6 +236,7 @@ router.get("/", async (req, res, next) => {
       }),
       prisma.opportunity.findMany({
         where: {
+          companyId: req.companyId,
           OR: [
             { status: { in: ACTIVE_STATUSES } },
             { status: "GANHA", updatedAt: { gte: twelveMonthsAgo } },
@@ -235,6 +247,7 @@ router.get("/", async (req, res, next) => {
       }),
       prisma.opportunity.findMany({
         where: {
+          companyId: req.companyId,
           OR: [
             { status: { in: ACTIVE_STATUSES } },
             { status: "GANHA", updatedAt: { gte: twelveMonthsAgo } }
@@ -325,6 +338,8 @@ router.get("/", async (req, res, next) => {
       .sort((a, b) => a.sale_type.localeCompare(b.sale_type));
 
     return res.json({
+      company_id: req.company.id,
+      company_name: req.company.name,
       period: period(now),
       pipeline_total: round2(pipelineTotal),
       pipeline_count: pipelineOpps.length,

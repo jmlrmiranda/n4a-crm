@@ -17,7 +17,7 @@ function createMockPrisma(opportunity) {
   };
   const prisma = {
     opportunity: {
-      findUnique: jest.fn().mockResolvedValue(opportunity)
+      findFirst: jest.fn().mockResolvedValue(opportunity)
     },
     $transaction: jest.fn(async (callback) => callback(tx))
   };

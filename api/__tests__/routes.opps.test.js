@@ -7,9 +7,13 @@ process.env.UPLOAD_DIR = "/tmp";
 const request = require("supertest");
 
 jest.mock("../src/prisma", () => ({
+  company: {
+    findUnique: jest.fn()
+  },
   user: {
     findMany: jest.fn(),
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     create: jest.fn(),
     update: jest.fn()
   },
@@ -19,7 +23,8 @@ jest.mock("../src/prisma", () => ({
     findFirst: jest.fn(),
     findUnique: jest.fn(),
     create: jest.fn(),
-    update: jest.fn()
+    update: jest.fn(),
+    updateMany: jest.fn()
   },
   opportunity: {
     count: jest.fn(),
@@ -27,7 +32,8 @@ jest.mock("../src/prisma", () => ({
     findFirst: jest.fn(),
     findUnique: jest.fn(),
     create: jest.fn(),
-    update: jest.fn()
+    update: jest.fn(),
+    updateMany: jest.fn()
   },
   opportunityStatusHistory: {
     create: jest.fn()
@@ -59,14 +65,24 @@ const adminToken = signToken({
   sub: "admin1",
   name: "Admin",
   email: "admin@n4a.pt",
-  role: "ADMIN"
+  role: "ADMIN",
+  companyId: "company1"
 });
 
 const vendorToken = signToken({
   sub: "seller1",
   name: "Vendedor",
   email: "seller@n4a.pt",
-  role: "VENDEDOR"
+  role: "VENDEDOR",
+  companyId: "company1"
+});
+
+const otherTenantAdminToken = signToken({
+  sub: "admin2",
+  name: "Admin Cliente",
+  email: "admin@cliente-demo.test",
+  role: "ADMIN",
+  companyId: "company2"
 });
 
 function auth(token = adminToken) {
@@ -76,6 +92,7 @@ function auth(token = adminToken) {
 function oppFixture(overrides = {}) {
   return {
     id: "opp1",
+    companyId: "company1",
     oppNo: "O00001",
     clientId: "client1",
     sellerUserId: "seller1",
@@ -129,7 +146,15 @@ function transactionPrisma(created, detail) {
 describe("routes opps", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    prisma.company.findUnique.mockImplementation(({ where }) => Promise.resolve({
+      id: where.id,
+      name: where.id === "company2" ? "Cliente Demo" : "N4A",
+      slug: where.id === "company2" ? "cliente-demo" : "n4a",
+      isActive: true
+    }));
+    prisma.user.findFirst.mockResolvedValue({ id: "seller1" });
     prisma.opportunity.count.mockResolvedValue(0);
+    prisma.opportunity.updateMany.mockResolvedValue({ count: 1 });
     prisma.$transaction.mockImplementation(async (callback) => callback(transactionPrisma(
       { id: "opp-created" },
       oppFixture({ id: "opp-created", oppNo: "O00001" })
@@ -161,11 +186,11 @@ describe("routes opps", () => {
         estGrossMargin: 105
       }));
       expect(prisma.opportunity.findMany).toHaveBeenCalledWith(expect.objectContaining({
-        where: {}
+        where: { companyId: "company1" }
       }));
     });
 
-    test("VENDEDOR recebe só as suas", async () => {
+    test("VENDEDOR recebe só as suas dentro da company", async () => {
       const allOpps = [
         oppFixture({ id: "opp1", sellerUserId: "seller1" }),
         oppFixture({ id: "opp2", oppNo: "O00002", sellerUserId: "seller2" })
@@ -182,8 +207,30 @@ describe("routes opps", () => {
       expect(res.body).toHaveLength(1);
       expect(res.body[0].sellerUserId).toBe("seller1");
       expect(prisma.opportunity.findMany).toHaveBeenCalledWith(expect.objectContaining({
-        where: { sellerUserId: "seller1" }
+        where: { companyId: "company1", sellerUserId: "seller1" }
       }));
+    });
+
+    test("admin de outro tenant não recebe oportunidades da N4A", async () => {
+      const allOpps = [
+        oppFixture({ id: "opp1", companyId: "company1", sellerUserId: "seller1" }),
+        oppFixture({ id: "opp2", companyId: "company2", oppNo: "O00002", sellerUserId: "seller2" })
+      ];
+      prisma.opportunity.findMany.mockImplementation(({ where }) =>
+        Promise.resolve(allOpps.filter((opp) => opp.companyId === where.companyId))
+      );
+
+      const res = await request(app)
+        .get("/api/opps")
+        .set("Authorization", auth(otherTenantAdminToken));
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0]).toEqual(expect.objectContaining({
+        id: "opp2",
+        companyId: "company2"
+      }));
+      expect(res.body[0].id).not.toBe("opp1");
     });
   });
 
@@ -220,7 +267,7 @@ describe("routes opps", () => {
     });
 
     test("404 se cliente não existe", async () => {
-      prisma.client.findUnique.mockResolvedValue(null);
+      prisma.client.findFirst.mockResolvedValue(null);
 
       const res = await request(app)
         .post("/api/opps")
@@ -234,7 +281,8 @@ describe("routes opps", () => {
       const created = { id: "opp-created" };
       const detail = oppFixture({ id: "opp-created", oppNo: "O00009" });
       const tx = transactionPrisma(created, detail);
-      prisma.client.findUnique.mockResolvedValue({ id: "client1" });
+      prisma.client.findFirst.mockResolvedValue({ id: "client1" });
+      prisma.user.findFirst.mockResolvedValue({ id: "seller2" });
       prisma.opportunity.count.mockResolvedValue(8);
       prisma.$transaction.mockImplementation(async (callback) => callback(tx));
 
@@ -258,6 +306,7 @@ describe("routes opps", () => {
       }));
       expect(tx.opportunity.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
+          companyId: "company1",
           oppNo: "O00009",
           clientId: "client1",
           sellerUserId: "seller2",
@@ -346,7 +395,7 @@ describe("routes opps", () => {
     });
 
     test("404 se opp não existe", async () => {
-      prisma.opportunity.findFirst.mockResolvedValue({ id: "opp1" });
+      prisma.opportunity.findFirst.mockResolvedValueOnce({ id: "opp1" });
       transitionStatus.mockRejectedValue(new Error("not_found"));
 
       const res = await request(app)
@@ -358,7 +407,7 @@ describe("routes opps", () => {
     });
 
     test("422 se transição inválida", async () => {
-      prisma.opportunity.findFirst.mockResolvedValue({ id: "opp1" });
+      prisma.opportunity.findFirst.mockResolvedValueOnce({ id: "opp1" });
       transitionStatus.mockRejectedValue(new Error("invalid_transition"));
 
       const res = await request(app)
@@ -370,11 +419,12 @@ describe("routes opps", () => {
     });
 
     test("200 com oportunidade actualizada", async () => {
-      prisma.opportunity.findFirst.mockResolvedValue({ id: "opp1" });
+      prisma.opportunity.findFirst
+        .mockResolvedValueOnce({ id: "opp1" })
+        .mockResolvedValueOnce(oppFixture({
+          status: "NEGOCIACAO"
+        }));
       transitionStatus.mockResolvedValue(undefined);
-      prisma.opportunity.findUnique.mockResolvedValue(oppFixture({
-        status: "NEGOCIACAO"
-      }));
 
       const res = await request(app)
         .post("/api/opps/opp1/status")
@@ -390,7 +440,8 @@ describe("routes opps", () => {
         "admin1",
         "Admin",
         "Avançar",
-        undefined
+        undefined,
+        "company1"
       );
     });
   });

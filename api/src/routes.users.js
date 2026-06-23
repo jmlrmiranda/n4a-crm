@@ -7,6 +7,7 @@ const roles = ["ADMIN", "VENDEDOR"];
 
 const userSelect = {
   id: true,
+  companyId: true,
   name: true,
   email: true,
   role: true,
@@ -28,7 +29,12 @@ function handlePrismaError(err, res, next) {
 
 router.get("/", async (req, res, next) => {
   try {
+    if (!req.user.companyId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
     const users = await prisma.user.findMany({
+      where: { companyId: req.user.companyId },
       select: userSelect,
       orderBy: { createdAt: "asc" }
     });
@@ -43,6 +49,10 @@ router.post("/", async (req, res, next) => {
   try {
     const { name, email, password, role } = req.body || {};
 
+    if (!req.user.companyId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
     if (!name || !email || !password || !role) {
       return res.status(400).json({ error: "name, email, password e role são obrigatórios" });
     }
@@ -53,7 +63,13 @@ router.post("/", async (req, res, next) => {
 
     const passwordHash = await hashPassword(password);
     const user = await prisma.user.create({
-      data: { name, email, passwordHash, role },
+      data: {
+        companyId: req.user.companyId,
+        name,
+        email,
+        passwordHash,
+        role
+      },
       select: userSelect
     });
 
@@ -67,6 +83,10 @@ router.patch("/:id", async (req, res, next) => {
   try {
     const data = {};
     const body = req.body || {};
+
+    if (!req.user.companyId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
     if (Object.prototype.hasOwnProperty.call(body, "name")) {
       data.name = body.name;
@@ -88,9 +108,23 @@ router.patch("/:id", async (req, res, next) => {
       data.isActive = body.isActive;
     }
 
-    const user = await prisma.user.update({
-      where: { id: req.params.id },
-      data,
+    const result = await prisma.user.updateMany({
+      where: {
+        id: req.params.id,
+        companyId: req.user.companyId
+      },
+      data
+    });
+
+    if (result.count === 0) {
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        id: req.params.id,
+        companyId: req.user.companyId
+      },
       select: userSelect
     });
 

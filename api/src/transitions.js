@@ -11,9 +11,12 @@ function isValidTransition(from, to) {
   return Array.isArray(TRANSITIONS[from]) && TRANSITIONS[from].includes(to);
 }
 
-async function transitionStatus(prisma, oppId, toStatus, userId, userName, note, lossReason) {
-  const opportunity = await prisma.opportunity.findUnique({
-    where: { id: oppId },
+async function transitionStatus(prisma, oppId, toStatus, userId, userName, note, lossReason, companyId) {
+  const opportunity = await prisma.opportunity.findFirst({
+    where: {
+      id: oppId,
+      ...(companyId ? { companyId } : {})
+    },
     select: {
       id: true,
       status: true,

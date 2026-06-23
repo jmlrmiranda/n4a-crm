@@ -7,6 +7,7 @@ const router = express.Router();
 
 const listSelect = {
   id: true,
+  companyId: true,
   clientNo: true,
   name: true,
   nif: true,
@@ -54,14 +55,15 @@ function handlePrismaError(err, res, next) {
   return next(err);
 }
 
-async function nextClientNo() {
-  const count = await prisma.client.count();
+async function nextClientNo(companyId) {
+  const count = await prisma.client.count({ where: { companyId } });
   return `C${String(count + 1).padStart(4, "0")}`;
 }
 
-async function nifExists(nif, excludeId) {
+async function nifExists(companyId, nif, excludeId) {
   const existing = await prisma.client.findFirst({
     where: {
+      companyId,
       nif,
       ...(excludeId ? { id: { not: excludeId } } : {})
     },
@@ -71,9 +73,10 @@ async function nifExists(nif, excludeId) {
   return Boolean(existing);
 }
 
-router.get("/", requireRole("ADMIN", "VENDEDOR"), async (req, res, next) => {
+router.get("/", requireRole("ADMIN", "VENDEDOR", "N4A_SUPPORT"), async (req, res, next) => {
   try {
     const clients = await prisma.client.findMany({
+      where: { companyId: req.companyId },
       select: listSelect,
       orderBy: { clientNo: "asc" }
     });
@@ -84,14 +87,20 @@ router.get("/", requireRole("ADMIN", "VENDEDOR"), async (req, res, next) => {
   }
 });
 
-router.get("/:id", requireRole("ADMIN", "VENDEDOR"), async (req, res, next) => {
+router.get("/:id", requireRole("ADMIN", "VENDEDOR", "N4A_SUPPORT"), async (req, res, next) => {
   try {
-    const client = await prisma.client.findUnique({
-      where: { id: req.params.id },
+    const client = await prisma.client.findFirst({
+      where: {
+        id: req.params.id,
+        companyId: req.companyId
+      },
       select: {
         ...detailSelect,
         opportunities: {
-          ...(req.user.role === "VENDEDOR" ? { where: { sellerUserId: req.user.sub } } : {}),
+          where: {
+            companyId: req.companyId,
+            ...(req.user.role === "VENDEDOR" ? { sellerUserId: req.user.sub } : {})
+          },
           select: clientOpportunitySelect,
           orderBy: { createdAt: "desc" }
         }
@@ -111,7 +120,7 @@ router.get("/:id", requireRole("ADMIN", "VENDEDOR"), async (req, res, next) => {
   }
 });
 
-router.post("/", requireRole("ADMIN", "VENDEDOR"), async (req, res, next) => {
+router.post("/", requireRole("ADMIN", "VENDEDOR", "N4A_SUPPORT"), async (req, res, next) => {
   try {
     const { name, nif, responsibleName, email, phone, address, description } = req.body || {};
 
@@ -119,13 +128,14 @@ router.post("/", requireRole("ADMIN", "VENDEDOR"), async (req, res, next) => {
       return res.status(400).json({ error: "name, nif, responsibleName, email e phone são obrigatórios" });
     }
 
-    if (await nifExists(nif)) {
+    if (await nifExists(req.companyId, nif)) {
       return res.status(409).json({ error: "Conflict" });
     }
 
     const client = await prisma.client.create({
       data: {
-        clientNo: await nextClientNo(),
+        companyId: req.companyId,
+        clientNo: await nextClientNo(req.companyId),
         name,
         nif,
         responsibleName,
@@ -155,13 +165,27 @@ router.patch("/:id", requireAdmin, async (req, res, next) => {
       }
     }
 
-    if (Object.prototype.hasOwnProperty.call(data, "nif") && await nifExists(data.nif, req.params.id)) {
+    if (Object.prototype.hasOwnProperty.call(data, "nif") && await nifExists(req.companyId, data.nif, req.params.id)) {
       return res.status(409).json({ error: "Conflict" });
     }
 
-    const client = await prisma.client.update({
-      where: { id: req.params.id },
-      data,
+    const result = await prisma.client.updateMany({
+      where: {
+        id: req.params.id,
+        companyId: req.companyId
+      },
+      data
+    });
+
+    if (result.count === 0) {
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    const client = await prisma.client.findFirst({
+      where: {
+        id: req.params.id,
+        companyId: req.companyId
+      },
       select: detailSelect
     });
 

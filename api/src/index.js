@@ -17,7 +17,10 @@ function requireEnv(name) {
 const CORS_ORIGIN = requireEnv("CORS_ORIGIN");
 const PORT = requireEnv("PORT");
 const { requireAuth, requireAdmin } = require("./middleware.auth");
+const { requireTenant } = require("./middleware.tenant");
+const { requireN4ASupportOrAdmin } = require("./middleware.admin");
 const authRouter = require("./routes.auth");
+const adminRouter = require("./routes.admin");
 const usersRouter = require("./routes.users");
 const clientsRouter = require("./routes.clients");
 const oppsRouter = require("./routes.opps");
@@ -39,12 +42,14 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", ts: new Date().toISOString() });
 });
 
-app.post("/auth/login", loginLimiter, authRouter);
+app.use("/auth/login", loginLimiter);
+app.use("/auth", authRouter);
 
+app.use("/admin", requireAuth, requireN4ASupportOrAdmin, adminRouter);
 app.use("/api/users", requireAuth, requireAdmin, usersRouter);
-app.use("/api/clients", requireAuth, clientsRouter);
-app.use("/api/opps", requireAuth, oppsRouter);
-app.use("/api/dashboard", requireAuth, requireAdmin, dashboardRouter);
+app.use("/api/clients", requireAuth, requireTenant, clientsRouter);
+app.use("/api/opps", requireAuth, requireTenant, oppsRouter);
+app.use("/api/dashboard", requireAuth, requireAdmin, requireTenant, dashboardRouter);
 
 app.use((err, req, res, next) => {
   console.error(err);

@@ -3,6 +3,17 @@ require("dotenv/config");
 const prisma = require("./prisma");
 const { hashPassword } = require("./auth");
 
+const companies = [
+  {
+    name: "N4A",
+    slug: "n4a"
+  },
+  {
+    name: "Cliente Demo",
+    slug: "cliente-demo"
+  }
+];
+
 const users = [
   {
     name: "Miranda Admin",
@@ -21,6 +32,12 @@ const users = [
     email: "bruno@n4a.pt",
     password: "n4a-vendas-2026",
     role: "VENDEDOR"
+  },
+  {
+    name: "Support User",
+    email: "support@n4a.pt",
+    password: "n4a-support-2026",
+    role: "N4A_SUPPORT"
   }
 ];
 
@@ -235,7 +252,40 @@ function historyRows(opp, sellerName) {
   }));
 }
 
-async function upsertUsers(summary) {
+async function upsertCompanies(summary) {
+  const companyMap = new Map();
+
+  for (const company of companies) {
+    const existing = await prisma.company.findUnique({
+      where: { slug: company.slug },
+      select: { id: true }
+    });
+    const saved = await prisma.company.upsert({
+      where: { slug: company.slug },
+      update: {
+        name: company.name,
+        isActive: true
+      },
+      create: {
+        name: company.name,
+        slug: company.slug,
+        isActive: true
+      }
+    });
+
+    if (existing) {
+      summary.companies.existing += 1;
+    } else {
+      summary.companies.created += 1;
+    }
+
+    companyMap.set(saved.slug, saved);
+  }
+
+  return companyMap;
+}
+
+async function upsertUsers(summary, company) {
   const userMap = new Map();
 
   for (const user of users) {
@@ -247,12 +297,14 @@ async function upsertUsers(summary) {
     const saved = await prisma.user.upsert({
       where: { email: user.email },
       update: {
+        companyId: company.id,
         name: user.name,
         passwordHash,
         role: user.role,
         isActive: true
       },
       create: {
+        companyId: company.id,
         name: user.name,
         email: user.email,
         passwordHash,
@@ -273,7 +325,7 @@ async function upsertUsers(summary) {
   return userMap;
 }
 
-async function upsertClients(summary) {
+async function upsertClients(summary, company) {
   const clientMap = new Map();
 
   for (const client of clients) {
@@ -283,8 +335,14 @@ async function upsertClients(summary) {
     });
     const saved = await prisma.client.upsert({
       where: { clientNo: client.clientNo },
-      update: client,
-      create: client
+      update: {
+        ...client,
+        companyId: company.id
+      },
+      create: {
+        ...client,
+        companyId: company.id
+      }
     });
 
     if (existing) {
@@ -299,7 +357,7 @@ async function upsertClients(summary) {
   return clientMap;
 }
 
-async function createOpportunity(opp, usersByEmail, clientsByNo) {
+async function createOpportunity(opp, company, usersByEmail, clientsByNo) {
   const seller = usersByEmail.get(opp.sellerEmail);
   const client = clientsByNo.get(opp.clientNo);
   const sentDate = proposalSentDate(opp);
@@ -312,6 +370,7 @@ async function createOpportunity(opp, usersByEmail, clientsByNo) {
     const created = await tx.opportunity.create({
       data: {
         oppNo: opp.oppNo,
+        companyId: company.id,
         clientId: client.id,
         sellerUserId: seller.id,
         saleType: opp.saleType,
@@ -344,7 +403,7 @@ async function createOpportunity(opp, usersByEmail, clientsByNo) {
   });
 }
 
-async function createOpportunities(summary, usersByEmail, clientsByNo) {
+async function createOpportunities(summary, company, usersByEmail, clientsByNo) {
   for (const opp of opportunities) {
     const existing = await prisma.opportunity.findUnique({
       where: { oppNo: opp.oppNo },
@@ -356,23 +415,27 @@ async function createOpportunities(summary, usersByEmail, clientsByNo) {
       continue;
     }
 
-    await createOpportunity(opp, usersByEmail, clientsByNo);
+    await createOpportunity(opp, company, usersByEmail, clientsByNo);
     summary.opps.created += 1;
   }
 }
 
 async function main() {
   const summary = {
+    companies: { created: 0, existing: 0 },
     users: { created: 0, existing: 0 },
     clients: { created: 0, existing: 0 },
     opps: { created: 0, existing: 0 }
   };
 
-  const usersByEmail = await upsertUsers(summary);
-  const clientsByNo = await upsertClients(summary);
-  await createOpportunities(summary, usersByEmail, clientsByNo);
+  const companiesBySlug = await upsertCompanies(summary);
+  const n4aCompany = companiesBySlug.get("n4a");
+  const usersByEmail = await upsertUsers(summary, n4aCompany);
+  const clientsByNo = await upsertClients(summary, n4aCompany);
+  await createOpportunities(summary, n4aCompany, usersByEmail, clientsByNo);
 
   console.log("Seed concluído:");
+  console.log(`companies: ${summary.companies.created} criadas, ${summary.companies.existing} existentes`);
   console.log(`users: ${summary.users.created} criados, ${summary.users.existing} existentes`);
   console.log(`clients: ${summary.clients.created} criados, ${summary.clients.existing} existentes`);
   console.log(`opps: ${summary.opps.created} criadas, ${summary.opps.existing} existentes`);

@@ -7,6 +7,9 @@ process.env.UPLOAD_DIR = "/tmp";
 const request = require("supertest");
 
 jest.mock("../src/prisma", () => ({
+  company: {
+    findUnique: jest.fn()
+  },
   user: {
     findMany: jest.fn(),
     findUnique: jest.fn(),
@@ -19,7 +22,8 @@ jest.mock("../src/prisma", () => ({
     findFirst: jest.fn(),
     findUnique: jest.fn(),
     create: jest.fn(),
-    update: jest.fn()
+    update: jest.fn(),
+    updateMany: jest.fn()
   },
   opportunity: {
     findMany: jest.fn()
@@ -34,14 +38,24 @@ const adminToken = signToken({
   sub: "admin1",
   name: "Admin",
   email: "admin@n4a.pt",
-  role: "ADMIN"
+  role: "ADMIN",
+  companyId: "company1"
 });
 
 const vendorToken = signToken({
   sub: "seller1",
   name: "Vendedor",
   email: "seller@n4a.pt",
-  role: "VENDEDOR"
+  role: "VENDEDOR",
+  companyId: "company1"
+});
+
+const otherTenantAdminToken = signToken({
+  sub: "admin2",
+  name: "Admin Cliente",
+  email: "admin@cliente-demo.test",
+  role: "ADMIN",
+  companyId: "company2"
 });
 
 function auth(token = adminToken) {
@@ -51,6 +65,7 @@ function auth(token = adminToken) {
 function clientFixture(overrides = {}) {
   return {
     id: "client1",
+    companyId: "company1",
     clientNo: "C0001",
     name: "Cliente A",
     nif: "500000001",
@@ -73,6 +88,12 @@ function p2025() {
 describe("routes clients", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    prisma.company.findUnique.mockImplementation(({ where }) => Promise.resolve({
+      id: where.id,
+      name: where.id === "company2" ? "Cliente Demo" : "N4A",
+      slug: where.id === "company2" ? "cliente-demo" : "n4a",
+      isActive: true
+    }));
     prisma.client.count.mockResolvedValue(0);
     prisma.client.findFirst.mockResolvedValue(null);
   });
@@ -95,6 +116,7 @@ describe("routes clients", () => {
       expect(res.status).toBe(200);
       expect(res.body).toEqual([client]);
       expect(prisma.client.findMany).toHaveBeenCalledWith({
+        where: { companyId: "company1" },
         select: expect.objectContaining({ id: true, name: true }),
         orderBy: { clientNo: "asc" }
       });
@@ -109,6 +131,28 @@ describe("routes clients", () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveLength(1);
+    });
+
+    test("admin de outro tenant não recebe clientes da N4A", async () => {
+      const allClients = [
+        clientFixture({ id: "client1", companyId: "company1", name: "Cliente N4A" }),
+        clientFixture({ id: "client2", companyId: "company2", name: "Cliente Demo" })
+      ];
+      prisma.client.findMany.mockImplementation(({ where }) =>
+        Promise.resolve(allClients.filter((client) => client.companyId === where.companyId))
+      );
+
+      const res = await request(app)
+        .get("/api/clients")
+        .set("Authorization", auth(otherTenantAdminToken));
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0]).toEqual(expect.objectContaining({
+        id: "client2",
+        companyId: "company2"
+      }));
+      expect(res.body[0].id).not.toBe("client1");
     });
   });
 
@@ -174,6 +218,7 @@ describe("routes clients", () => {
       expect(res.body).toEqual(created);
       expect(prisma.client.create).toHaveBeenCalledWith({
         data: {
+          companyId: "company1",
           clientNo: "C0001",
           ...validBody
         },
@@ -214,7 +259,7 @@ describe("routes clients", () => {
     });
 
     test("404 se cliente não existe", async () => {
-      prisma.client.update.mockRejectedValue(p2025());
+      prisma.client.updateMany.mockResolvedValue({ count: 0 });
 
       const res = await request(app)
         .patch("/api/clients/client1")
@@ -226,7 +271,8 @@ describe("routes clients", () => {
 
     test("200 com cliente actualizado", async () => {
       const updated = clientFixture({ name: "Cliente Editado" });
-      prisma.client.update.mockResolvedValue(updated);
+      prisma.client.updateMany.mockResolvedValue({ count: 1 });
+      prisma.client.findFirst.mockResolvedValue(updated);
 
       const res = await request(app)
         .patch("/api/clients/client1")
@@ -235,10 +281,9 @@ describe("routes clients", () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual(updated);
-      expect(prisma.client.update).toHaveBeenCalledWith({
-        where: { id: "client1" },
-        data: { name: "Cliente Editado" },
-        select: expect.objectContaining({ address: true, description: true })
+      expect(prisma.client.updateMany).toHaveBeenCalledWith({
+        where: { id: "client1", companyId: "company1" },
+        data: { name: "Cliente Editado" }
       });
     });
   });
@@ -251,7 +296,7 @@ describe("routes clients", () => {
     });
 
     test("404 se não existe", async () => {
-      prisma.client.findUnique.mockResolvedValue(null);
+      prisma.client.findFirst.mockResolvedValue(null);
 
       const res = await request(app)
         .get("/api/clients/client1")
@@ -261,7 +306,7 @@ describe("routes clients", () => {
     });
 
     test("200 com cliente e oportunidades", async () => {
-      prisma.client.findUnique.mockResolvedValue({
+      prisma.client.findFirst.mockResolvedValue({
         ...clientFixture(),
         opportunities: [
           {
