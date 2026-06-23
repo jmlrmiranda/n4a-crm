@@ -522,3 +522,8 @@
 - Secção Financeiro Final aparece só em GANHA — confirmado
 - Visibilidade confirmada: VENDEDOR (Ana) recebe 404 em oportunidade de outro vendedor; ADMIN recebe 200
 - Nota cosmética menor (não bloqueante): Intl.NumberFormat omite separador de milhar abaixo de 10.000 (ex: "8000,00 €")
+
+## Actualização 2026-06-23 — Cloudflare resolvido
+- Incidente Cloudflare resolvido. Acesso externo a https://crm.n4a-lab.pt funcional.
+- Cadeia completa confirmada: Internet → Cloudflare → Tunnel (webserver) → nginx → 192.168.100.112:8080 → n4a-crm-api
+- Pendente "verificar acesso externo após Cloudflare" REMOVIDO da lista.
