@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import api from '../api/client.js'
 import { useAuth } from '../contexts/AuthContext.jsx'
+import ChangePasswordModal from './ChangePasswordModal.jsx'
 import './Layout.css'
 
 function navLinkClass({ isActive }) {
@@ -13,6 +14,7 @@ function Layout() {
   const [companies, setCompanies] = useState([])
   const [companiesLoaded, setCompaniesLoaded] = useState(false)
   const [companySwitching, setCompanySwitching] = useState(false)
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false)
 
   const canSwitchCompany = user?.role === 'N4A_SUPPORT' || user?.role === 'N4A_ADMIN'
   const companyName = activeCompanyName || 'Empresa activa'
@@ -84,6 +86,13 @@ function Layout() {
           <span className="n4a-badge n4a-badge--muted">{user?.role || 'USER'}</span>
           <button
             className="n4a-btn n4a-btn--ghost crm-shell__logout"
+            onClick={() => setPasswordModalOpen(true)}
+            type="button"
+          >
+            Password
+          </button>
+          <button
+            className="n4a-btn n4a-btn--ghost crm-shell__logout"
             onClick={logout}
             type="button"
           >
@@ -123,6 +132,13 @@ function Layout() {
           <Outlet />
         </main>
       </div>
+      {passwordModalOpen && (
+        <ChangePasswordModal
+          onClose={() => setPasswordModalOpen(false)}
+          userId={user.id}
+          userName={user.name}
+        />
+      )}
     </div>
   )
 }

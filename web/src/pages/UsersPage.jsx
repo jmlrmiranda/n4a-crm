@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '../api/client.js'
+import ChangePasswordModal from '../components/ChangePasswordModal.jsx'
 import NewUserModal from '../components/NewUserModal.jsx'
 import './UsersPage.css'
 
@@ -9,6 +10,7 @@ function UsersPage() {
   const [error, setError] = useState('')
   const [updatingUserId, setUpdatingUserId] = useState('')
   const [newUserOpen, setNewUserOpen] = useState(false)
+  const [passwordTargetUser, setPasswordTargetUser] = useState(null)
 
   useEffect(() => {
     let ignore = false
@@ -126,14 +128,24 @@ function UsersPage() {
                     </span>
                   </td>
                   <td>
-                    <button
-                      className="n4a-btn n4a-btn--ghost users-page__action"
-                      disabled={updatingUserId === user.id}
-                      onClick={() => toggleUser(user)}
-                      type="button"
-                    >
-                      {user.isActive ? 'Desactivar' : 'Activar'}
-                    </button>
+                    <div className="users-page__actions">
+                      <button
+                        className="n4a-btn n4a-btn--ghost users-page__action"
+                        disabled={updatingUserId === user.id}
+                        onClick={() => setPasswordTargetUser(user)}
+                        type="button"
+                      >
+                        Password
+                      </button>
+                      <button
+                        className="n4a-btn n4a-btn--ghost users-page__action"
+                        disabled={updatingUserId === user.id}
+                        onClick={() => toggleUser(user)}
+                        type="button"
+                      >
+                        {user.isActive ? 'Desactivar' : 'Activar'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -154,6 +166,14 @@ function UsersPage() {
               ),
             )
           }
+        />
+      )}
+
+      {passwordTargetUser && (
+        <ChangePasswordModal
+          onClose={() => setPasswordTargetUser(null)}
+          userId={passwordTargetUser.id}
+          userName={passwordTargetUser.name}
         />
       )}
     </section>
