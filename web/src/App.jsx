@@ -4,6 +4,7 @@ import PrivateRoute from './components/PrivateRoute.jsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
 import ClientPage from './pages/ClientPage.jsx'
 import ClientsPage from './pages/ClientsPage.jsx'
+import CompaniesPage from './pages/CompaniesPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import OpportunityPage from './pages/OpportunityPage.jsx'
@@ -14,6 +15,16 @@ function AdminRoute({ children }) {
   const { user } = useAuth()
 
   if (user?.role !== 'ADMIN') {
+    return <Navigate to="/" replace />
+  }
+
+  return children
+}
+
+function N4AAdminRoute({ children }) {
+  const { user } = useAuth()
+
+  if (user?.role !== 'N4A_ADMIN') {
     return <Navigate to="/" replace />
   }
 
@@ -45,6 +56,14 @@ function App() {
                 <AdminRoute>
                   <UsersPage />
                 </AdminRoute>
+              }
+            />
+            <Route
+              path="empresas"
+              element={
+                <N4AAdminRoute>
+                  <CompaniesPage />
+                </N4AAdminRoute>
               }
             />
           </Route>

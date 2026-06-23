@@ -76,7 +76,7 @@ router.post("/switch-company", requireAuth, async (req, res, next) => {
   try {
     const { targetCompanyId } = req.body || {};
 
-    if (req.user.role !== "N4A_SUPPORT") {
+    if (!["N4A_SUPPORT", "N4A_ADMIN"].includes(req.user.role)) {
       return res.status(403).json({ error: "Forbidden" });
     }
 

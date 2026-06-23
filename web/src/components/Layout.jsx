@@ -14,13 +14,14 @@ function Layout() {
   const [companiesLoaded, setCompaniesLoaded] = useState(false)
   const [companySwitching, setCompanySwitching] = useState(false)
 
+  const canSwitchCompany = user?.role === 'N4A_SUPPORT' || user?.role === 'N4A_ADMIN'
   const companyName = activeCompanyName || 'Empresa activa'
   const supportCompanies = companiesLoaded
     ? companies
     : [{ id: companyId || '', name: companyName, slug: '', isActive: true }]
 
   async function loadCompanies() {
-    if (companiesLoaded || user?.role !== 'N4A_SUPPORT') {
+    if (companiesLoaded || !canSwitchCompany) {
       return
     }
 
@@ -61,7 +62,7 @@ function Layout() {
         </div>
 
         <div className="crm-shell__user">
-          {user?.role === 'N4A_SUPPORT' ? (
+          {canSwitchCompany ? (
             <select
               className="crm-shell__company-select"
               disabled={companySwitching}
@@ -109,6 +110,11 @@ function Layout() {
                   Utilizadores
                 </NavLink>
               </>
+            )}
+            {user?.role === 'N4A_ADMIN' && (
+              <NavLink to="/empresas" className={navLinkClass}>
+                Empresas
+              </NavLink>
             )}
           </nav>
         </aside>
