@@ -1,4 +1,4 @@
-# Prompt de abertura — Claude Desktop — CRM n4a
+# Prompt de abertura — próxima sessão CRM n4a
 
 Contexto:
 - Repo: `/Users/server/n4a-lab/platform/n4a-crm`
@@ -13,7 +13,8 @@ Contexto:
 Primeiro passo obrigatório:
 1. Entrar no repo:
    `cd /Users/server/n4a-lab/platform/n4a-crm`
-2. Ler e executar `docs/SESSAO_ABRIR.md`.
+2. Ler e executar:
+   `docs/SESSAO_ABRIR.md`
 3. Ler:
    - `docs/CHECKPOINT_2026-06-22.md`
    - `docs/adr/ADR-CRM-001-modelo-financeiro.md`
@@ -21,95 +22,113 @@ Primeiro passo obrigatório:
    - `docs/adr/ADR-CRM-003-multi-empresa.md`
 4. Confirmar:
    - `git status --short`
-   - `docker ps --filter name=n4a-crm --format "table {{.Names}}\t{{.Status}}"`
+   - `git log --oneline -8`
+   - `docker ps --filter name=n4a-crm --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"`
    - `curl -fsS -o /dev/null -w "%{http_code}\n" http://localhost:8080/health`
 5. Correr:
    - `cd api && npm test`
 
-Estado conhecido:
-- API com 97 testes a passar.
-- CRM em produção em `https://crm.n4a-lab.pt`.
-- Docker local expõe a API/frontend em `http://localhost:8080`.
-- Últimas funcionalidades concluídas:
-  - d3: filtros por período no dashboard.
-  - d5: export Excel com `exceljs`.
-  - me5: CRUD backend de empresas.
-  - u4: alteração backend de password.
+Estado esperado:
+- Working tree deve estar limpo.
+- API deve ter 97 testes a passar.
+- Docker actual expõe CRM em `http://localhost:8080`.
+- O protocolo antigo menciona porta 18080, mas o estado pós-migração usa 8080.
+- Repositório ainda não tem remote Git configurado.
 
-d3 — dashboard:
-- `GET /api/dashboard` aceita `dateFrom` e `dateTo`.
-- Os filtros só afectam métricas históricas de oportunidades `GANHA`/`PERDIDA` por `updatedAt`.
-- Pipeline activo continua sem filtro temporal.
-- Forecast mantém próximos 90 dias.
-- UI tem date pickers `De` / `Até` e botão `Limpar`.
+Commits recentes importantes:
+- `fc269ba` — `docs: checkpoint fecho Sessão B`
+- `c87afd2` — `feat: UI alterar password (u4)`
+- `898c33c` — `feat: UI gestão de empresas (me5) + N4A_ADMIN ganha switch-company`
+- `bc00021` — `feat: CRUD empresas e alteração de password`
+- `8879d66` — `feat: dashboard — filtros por período (d3) e export Excel exceljs (d5)`
+- `fad1afe` — `chore: script criar-utilizadores-reais, fecho sessão pós-migração`
+- `cb8e031` — `feat: produção — frontend estático, trust proxy, CORS produção, fixup tenant`
+- `603f0be` — `feat: multi-empresa completo — ADR-003, schema, API, UI, 97 testes`
 
-d5 — Excel:
-- Export Excel está no frontend com `exceljs`.
-- Sheets exportadas:
-  - `KPIs`
-  - `Por Vendedor`
-  - `Por Tipo`
-- `xlsx` foi removido por vulnerabilidade high sem fix.
-- `exceljs@4.4.0` mantém vulnerabilidade moderada transitiva via `uuid@8.3.2`.
-- Não correr `npm audit fix --force` sem decisão, porque o npm indica downgrade/breaking change para `exceljs@3.4.0`.
-
-me5 — empresas:
-- Implementado em `api/src/routes.admin.js`.
-- Rotas:
+Estado funcional concluído:
+- d3: dashboard com filtros por período:
+  - `GET /api/dashboard?dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD`
+  - filtros aplicam-se a GANHA/PERDIDA por `updatedAt`
+  - pipeline activo continua intemporal
+  - forecast mantém próximos 90 dias
+- d5: export Excel no frontend com `exceljs`
+  - sheets: `KPIs`, `Por Vendedor`, `Por Tipo`
+  - `xlsx` removido por vulnerabilidade high sem fix
+  - `exceljs@4.4.0` aceite apesar de vulnerabilidade moderada transitiva `uuid@8.3.2`
+- me5 backend:
   - `GET /admin/companies`
   - `POST /admin/companies`
   - `PATCH /admin/companies/:id`
   - `DELETE /admin/companies/:id`
-- `PATCH` permite alterar `name`, `slug`, `isActive`.
-- `DELETE` é soft delete: coloca `Company.isActive=false` e desactiva utilizadores da empresa.
-- Requer `N4A_ADMIN` para criar/editar/desactivar empresas.
-- A UI ainda não tem página de gestão de empresas.
-
-u4 — alteração de password:
-- Implementado em `api/src/routes.users.js`.
-- Rota:
+- me5 UI:
+  - `CompaniesPage`
+  - rota `/empresas`
+  - guard `N4AAdminRoute`
+  - link “Empresas” no menu
+  - listar, criar, editar, desactivar tenants
+  - apenas `N4A_ADMIN`
+- permissões Opção C:
+  - `switch-company` aceita `N4A_ADMIN` e `N4A_SUPPORT`
+  - `support@n4a.pt` foi promovido para `N4A_ADMIN` na DB de produção
+- u4 backend:
   - `PATCH /api/users/:id/password`
-- Utilizador pode alterar a própria password.
-- `ADMIN` pode alterar password de utilizadores da mesma empresa.
-- Password mínima: 8 caracteres.
-- Usa `hashPassword`.
-- Não altera schema Prisma.
-- A UI ainda não tem formulário de alteração de password.
+  - próprio utilizador pode alterar a própria password
+  - `ADMIN` pode alterar password de utilizadores da mesma empresa
+  - mínimo 8 caracteres
+- u4 UI:
+  - `ChangePasswordModal`
+  - botão `Password` no topbar para qualquer utilizador
+  - botão `Password` por linha na `UsersPage` para `ADMIN`
 
-Validação já feita:
-- `npm test` na API: 97 passed.
-- Testes funcionais por API para me5/u4:
-  - empresa temporária criada;
-  - empresa temporária editada;
-  - validações de erro em PATCH;
-  - passwords de admin/vendedor temporários alteradas;
-  - permissões de vendedor validadas;
-  - empresa temporária desactivada por soft delete;
-  - utilizadores temporários ficaram inactivos;
-  - login dos utilizadores temporários passou a `401`.
-- A API foi reiniciada depois dos testes para limpar rate-limit em memória.
-- Health final: `http://localhost:8080/health -> 200`.
+Roles actuais:
+- `ADMIN`: admin de empresa. Vê dashboard, utilizadores e pode alterar passwords da empresa.
+- `VENDEDOR`: comercial. Pode alterar apenas a própria password.
+- `N4A_SUPPORT`: pode fazer switch de empresa.
+- `N4A_ADMIN`: pode fazer switch de empresa e gerir tenants pela UI.
 
-Notas importantes:
-- `support@n4a.pt` existe no seed com password demo `n4a-support-2026`.
-- `support@n4a.pt` tem role `N4A_SUPPORT`, não `N4A_ADMIN`; consegue seleccionar empresas, mas não vê UI de Dashboard/Utilizadores e não cria empresas pela UI.
-- A UI actual ainda não expõe criação/edição/desactivação de empresas.
-- Para operar empresas no browser, é preciso implementar página frontend própria para `N4A_ADMIN`.
-- Continuam passwords demo no seed; remover quando terminar a janela de testes.
+Credenciais demo conhecidas:
+- `support@n4a.pt` tem role `N4A_ADMIN`.
+- Password seed do suporte: `n4a-support-2026`.
+- `ana@n4a.pt` tem password seed: `n4a-vendas-2026`.
+- Existem utilizadores reais criados via script com password definida por env, não hardcoded.
 
-Pendentes recomendados:
-1. Confirmar `git status --short`.
-2. Confirmar o último commit com `git log -1 --oneline`.
-3. Decidir se se implementa UI para:
-   - gestão de empresas;
-   - alteração de password.
+Notas de dados:
+- Empresa de teste `teste-ui` ficou desactivada por soft delete na DB.
+- Dados demo continuam presentes e só devem ser removidos após a janela de testes.
+- Passwords demo continuam no `api/src/seed.js`; isto é pendência conhecida.
+
+Validações já feitas:
+- API: 97 testes a passar.
+- Testes funcionais por API:
+  - me5: criar/listar/editar/desactivar empresa.
+  - permissões: `N4A_ADMIN` consegue `switch-company`.
+  - u4: ADMIN altera password de vendedor; vendedor não altera password de outro; password curta dá 400; password da Ana reposta ao seed.
+- UI compilou e passou lint nos blocos implementados.
+
+Pendentes recomendados para próxima sessão:
+1. Verificar acesso externo em `https://crm.n4a-lab.pt` após Cloudflare resolver.
+2. Configurar remote Git e fazer push de TODOS os commits locais.
+3. Remover dados demo do seed + empresa de teste `teste-ui` depois da janela de testes.
 4. Decidir política para vulnerabilidade moderada transitiva de `exceljs`.
-5. Configurar remote Git e fazer push dos commits locais.
+5. d4: relatório PDF, pendente e mais pesado; provável `pdfkit` no backend, sem mexer em Prisma salvo confirmação.
 6. Continuar validação pós-migração em `docs/MIGRACAO_LEGACY.md` fase 5.
 
-Formato de resposta esperado:
+Se a próxima sessão for sobre d4 relatório PDF:
+- Antes de implementar, auditar:
+  - `api/src/routes.dashboard.js`
+  - `api/src/routes.opps.js`
+  - `web/src/pages/DashboardPage.jsx`
+  - `web/src/pages/OpportunityPage.jsx`
+- Confirmar exactamente que relatório se quer:
+  - dashboard agregado por período?
+  - oportunidade individual?
+  - pipeline completo?
+- Não instalar dependências novas sem reportar o impacto.
+
+Formato esperado de resposta inicial:
 - Reportar protocolo executado.
 - Reportar testes.
+- Reportar estado Docker/health.
 - Reportar `git status`.
-- Reportar próximo passo proposto.
-- Não alterar produção, Prisma, Docker ou legacy sem autorização explícita.
+- Reportar último checkpoint/pendências.
+- Aguardar instruções antes de alterações.
