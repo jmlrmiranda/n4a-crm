@@ -26,6 +26,7 @@ const detailSelect = {
 const clientOpportunitySelect = {
   id: true,
   oppNo: true,
+  title: true,
   status: true,
   saleType: true,
   estServices: true,
@@ -33,8 +34,13 @@ const clientOpportunitySelect = {
   estHardware: true,
   estMaintenance: true,
   estCostPrice: true,
+  finalServices: true,
+  finalSoftware: true,
+  finalHardware: true,
+  finalMaintenance: true,
   expectedCloseDate: true,
   createdAt: true,
+  updatedAt: true,
   seller: {
     select: {
       id: true,
@@ -102,7 +108,7 @@ router.get("/:id", requireRole("ADMIN", "VENDEDOR", "N4A_SUPPORT"), async (req, 
             ...(req.user.role === "VENDEDOR" ? { sellerUserId: req.user.sub } : {})
           },
           select: clientOpportunitySelect,
-          orderBy: { createdAt: "desc" }
+          orderBy: { updatedAt: "desc" }
         }
       }
     });

@@ -97,6 +97,7 @@ model Opportunity {
   status       OpportunityStatus @default(ABERTA)
   archived     Boolean           @default(false)
   lossReason   String?
+  title        String?
 
   estServices      Decimal @default(0) @db.Decimal(12, 2)
   estSoftware      Decimal @default(0) @db.Decimal(12, 2)

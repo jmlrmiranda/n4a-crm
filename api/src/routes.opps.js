@@ -28,6 +28,7 @@ const oppListSelect = {
   id: true,
   companyId: true,
   oppNo: true,
+  title: true,
   clientId: true,
   sellerUserId: true,
   saleType: true,
@@ -58,6 +59,7 @@ const oppListSelect = {
 
 const oppDetailSelect = {
   ...oppListSelect,
+  title: true,
   finalServices: true,
   finalSoftware: true,
   finalHardware: true,
@@ -100,6 +102,7 @@ const oppDetailSelect = {
 
 const oppPdfSelect = {
   ...oppDetailSelect,
+  title: true,
   client: {
     select: {
       id: true,
@@ -344,6 +347,10 @@ router.post("/", async (req, res, next) => {
       status: "ABERTA"
     };
 
+    if (Object.prototype.hasOwnProperty.call(body, "title")) {
+      data.title = body.title;
+    }
+
     assignIfPresent(data, body, "expectedCloseDate", parseDateValue);
     assignIfPresent(data, body, "estServices", parseDecimalValue);
     assignIfPresent(data, body, "estSoftware", parseDecimalValue);
@@ -426,6 +433,10 @@ router.patch("/:id", async (req, res, next) => {
     assignIfPresent(data, body, "finalHardware", parseDecimalValue);
     assignIfPresent(data, body, "finalMaintenance", parseDecimalValue);
     assignIfPresent(data, body, "realCostPrice", parseDecimalValue);
+
+    if (Object.prototype.hasOwnProperty.call(body, "title")) {
+      data.title = body.title;
+    }
 
     if (Object.prototype.hasOwnProperty.call(body, "lossReason")) {
       data.lossReason = body.lossReason;
@@ -542,6 +553,57 @@ router.post("/:id/contacts", async (req, res, next) => {
     }
 
     return handlePrismaError(err, res, next);
+  }
+});
+
+router.get("/:id/similar", async (req, res, next) => {
+  try {
+    const opp = await findVisibleOpp(req.params.id, req.user, req.companyId, {
+      id: true,
+      clientId: true,
+      saleType: true
+    });
+
+    if (!opp) {
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    const where = {
+      companyId: req.companyId,
+      clientId: opp.clientId,
+      saleType: opp.saleType,
+      id: { not: opp.id }
+    };
+
+    if (isVendor(req.user)) {
+      where.sellerUserId = req.user.sub;
+    }
+
+    const similar = await prisma.opportunity.findMany({
+      where,
+      select: {
+        id: true,
+        oppNo: true,
+        title: true,
+        status: true,
+        saleType: true,
+        estServices: true,
+        estSoftware: true,
+        estHardware: true,
+        estMaintenance: true,
+        finalServices: true,
+        finalSoftware: true,
+        finalHardware: true,
+        finalMaintenance: true,
+        expectedCloseDate: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    return res.json(similar.map(serializeOpp));
+  } catch (err) {
+    return next(err);
   }
 });
 

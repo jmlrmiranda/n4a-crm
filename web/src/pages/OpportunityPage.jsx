@@ -210,6 +210,13 @@ function OpportunityPage() {
   const [adjudicateError, setAdjudicateError] = useState('')
   const [archiveSaving, setArchiveSaving] = useState(false)
   const [archiveError, setArchiveError] = useState('')
+  const [titleEditing, setTitleEditing] = useState(false)
+  const [titleForm, setTitleForm] = useState('')
+  const [titleError, setTitleError] = useState('')
+  const [titleSaving, setTitleSaving] = useState(false)
+  const [similarOpps, setSimilarOpps] = useState([])
+  const [similarLoading, setSimilarLoading] = useState(true)
+  const [similarError, setSimilarError] = useState('')
 
   useEffect(() => {
     let ignore = false
@@ -217,6 +224,9 @@ function OpportunityPage() {
     async function loadOpportunity() {
       setLoading(true)
       setError('')
+      setSimilarLoading(true)
+      setSimilarError('')
+      setSimilarOpps([])
 
       try {
         const { data } = await api.get(`/api/opps/${id}`)
@@ -224,14 +234,30 @@ function OpportunityPage() {
         if (!ignore) {
           setOpportunity(data)
         }
+
+        try {
+          const { data: similarData } = await api.get(`/api/opps/${id}/similar`)
+
+          if (!ignore) {
+            setSimilarOpps(similarData || [])
+            setSimilarError('')
+          }
+        } catch {
+          if (!ignore) {
+            setSimilarOpps([])
+            setSimilarError('Não foi possível carregar as propostas anteriores.')
+          }
+        }
       } catch {
         if (!ignore) {
           setOpportunity(null)
           setError('Não foi possível carregar a oportunidade.')
+          setSimilarOpps([])
         }
       } finally {
         if (!ignore) {
           setLoading(false)
+          setSimilarLoading(false)
         }
       }
     }
@@ -247,6 +273,31 @@ function OpportunityPage() {
     const { data } = await api.get(`/api/opps/${id}`)
     setOpportunity(data)
     return data
+  }
+
+  function openTitleEdit() {
+    setTitleForm(opportunity.title || '')
+    setTitleError('')
+    setTitleEditing(true)
+  }
+
+  async function handleTitleSubmit(event) {
+    event.preventDefault()
+    setTitleError('')
+    setTitleSaving(true)
+
+    try {
+      const { data } = await api.patch(`/api/opps/${id}`, {
+        title: titleForm.trim() || null,
+      })
+
+      setOpportunity(data)
+      setTitleEditing(false)
+    } catch {
+      setTitleError('Não foi possível guardar o título.')
+    } finally {
+      setTitleSaving(false)
+    }
   }
 
   function openTransitionPanel() {
@@ -539,6 +590,45 @@ function OpportunityPage() {
           <h1 className="opportunity-page__title">
             {opportunity.client?.name || 'Cliente sem nome'}
           </h1>
+          {titleEditing ? (
+            <form className="opportunity-page__title-form" onSubmit={handleTitleSubmit}>
+              <input
+                className="n4a-input"
+                onChange={(event) => setTitleForm(event.target.value)}
+                placeholder="Título da oportunidade"
+                value={titleForm}
+              />
+              <button
+                className="n4a-btn n4a-btn--primary"
+                disabled={titleSaving}
+                type="submit"
+              >
+                {titleSaving ? 'A guardar...' : 'Guardar'}
+              </button>
+              <button
+                className="n4a-btn n4a-btn--ghost"
+                disabled={titleSaving}
+                onClick={() => setTitleEditing(false)}
+                type="button"
+              >
+                Cancelar
+              </button>
+            </form>
+          ) : (
+            <div className="opportunity-page__title-line">
+              {opportunity.title && (
+                <p className="opportunity-page__subtitle">{opportunity.title}</p>
+              )}
+              <button
+                className="n4a-btn n4a-btn--ghost opportunity-page__title-edit"
+                onClick={openTitleEdit}
+                type="button"
+              >
+                Editar título
+              </button>
+            </div>
+          )}
+          {titleError && <div className="opportunity-page__form-error">{titleError}</div>}
           <div className="opportunity-page__meta">
             <span>{opportunity.seller?.name || 'Sem vendedor'}</span>
             <span>{opportunity.saleType}</span>
@@ -828,6 +918,53 @@ function OpportunityPage() {
           </div>
         </section>
       </div>
+
+      <section className="n4a-card">
+        <h2 className="opportunity-page__section-title">Propostas anteriores semelhantes</h2>
+        {similarLoading ? (
+          <div className="opportunity-page__empty">A carregar...</div>
+        ) : similarError ? (
+          <div className="opportunity-page__form-error">{similarError}</div>
+        ) : similarOpps.length ? (
+          <table className="n4a-table opportunity-page__table">
+            <thead>
+              <tr>
+                <th>Nº</th>
+                <th>Título</th>
+                <th>Estado</th>
+                <th>Venda estimada</th>
+                <th>Venda final</th>
+                <th>Data</th>
+              </tr>
+            </thead>
+            <tbody>
+              {similarOpps.map((similar) => {
+                const similarMeta = getStatusMeta(similar.status)
+                const finalSellPrice = Number(similar.finalSellPrice || 0)
+
+                return (
+                  <tr key={similar.id}>
+                    <td>{similar.oppNo}</td>
+                    <td>{similar.title || '—'}</td>
+                    <td>
+                      <span className={`n4a-badge ${similarMeta.className}`}>
+                        {similarMeta.label}
+                      </span>
+                    </td>
+                    <td>{formatMoney(similar.estSellPrice)}</td>
+                    <td>{finalSellPrice > 0 ? formatMoney(finalSellPrice) : '—'}</td>
+                    <td>{formatDate(similar.createdAt)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <div className="opportunity-page__empty">
+            Sem propostas anteriores para este cliente e tipo de venda
+          </div>
+        )}
+      </section>
 
       <div className="opportunity-page__columns">
         <section className="n4a-card">

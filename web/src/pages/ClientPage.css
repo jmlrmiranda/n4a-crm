@@ -116,6 +116,25 @@
   display: grid;
 }
 
+.client-page__opps-table {
+  margin-top: 4px;
+}
+
+.client-page__opp-link {
+  background: transparent;
+  border: none;
+  color: var(--n4a-magenta);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  text-align: left;
+}
+
+.client-page__opp-link:hover {
+  color: var(--n4a-magenta-hover);
+}
+
 .client-page__opp-row {
   align-items: center;
   background: transparent;

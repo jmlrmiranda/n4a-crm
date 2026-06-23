@@ -9,6 +9,7 @@ function NewOppModal({ onClose, onCreated }) {
   const [clients, setClients] = useState([])
   const [users, setUsers] = useState([])
   const [clientId, setClientId] = useState('')
+  const [title, setTitle] = useState('')
   const [saleType, setSaleType] = useState('PROJETO')
   const [sellerUserId, setSellerUserId] = useState('')
   const [expectedCloseDate, setExpectedCloseDate] = useState('')
@@ -71,6 +72,10 @@ function NewOppModal({ onClose, onCreated }) {
         saleType,
       }
 
+      if (title.trim()) {
+        body.title = title.trim()
+      }
+
       if (expectedCloseDate) {
         body.expectedCloseDate = expectedCloseDate
       }
@@ -122,6 +127,17 @@ function NewOppModal({ onClose, onCreated }) {
                 </option>
               ))}
             </select>
+
+            <label className="n4a-label new-opp-modal__label" htmlFor="new-opp-title-field">
+              Título
+            </label>
+            <input
+              className="n4a-input"
+              id="new-opp-title-field"
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="Ex: Renovação suporte 2026"
+              value={title}
+            />
 
             <label className="n4a-label new-opp-modal__label" htmlFor="new-opp-type">
               Tipo de venda

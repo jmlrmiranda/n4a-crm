@@ -9,6 +9,12 @@ const moneyFormatter = new Intl.NumberFormat('pt-PT', {
   style: 'currency',
 })
 
+const dateFormatter = new Intl.DateTimeFormat('pt-PT', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+})
+
 const statusMeta = {
   ABERTA: { className: 'n4a-badge--muted', label: 'Aberta' },
   PROPOSTA_EM_PREPARACAO: {
@@ -26,6 +32,20 @@ const statusMeta = {
 
 function getStatusMeta(status) {
   return statusMeta[status] || { className: 'n4a-badge--muted', label: status }
+}
+
+function formatDate(value) {
+  if (!value) {
+    return 'Sem data'
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Sem data'
+  }
+
+  return dateFormatter.format(date)
 }
 
 function ClientField({ label, value }) {
@@ -185,6 +205,12 @@ function ClientPage() {
   }
 
   const isAdmin = user?.role === 'ADMIN'
+  const clientOpportunities = [...(client.opportunities || [])].sort((a, b) => {
+    const dateA = new Date(a.updatedAt || a.createdAt || 0).getTime()
+    const dateB = new Date(b.updatedAt || b.createdAt || 0).getTime()
+
+    return dateB - dateA
+  })
 
   return (
     <section className="client-page">
@@ -329,26 +355,48 @@ function ClientPage() {
 
       <section className="n4a-card client-page__opps-card">
         <h2 className="client-page__section-title">Oportunidades do cliente</h2>
-        {client.opportunities?.length ? (
-          <div className="client-page__opps">
-            {client.opportunities.map((opp) => {
-              const meta = getStatusMeta(opp.status)
+        {clientOpportunities.length ? (
+          <table className="n4a-table client-page__opps-table">
+            <thead>
+              <tr>
+                <th>Nº</th>
+                <th>Título</th>
+                <th>Estado</th>
+                <th>Tipo</th>
+                <th>Venda estimada</th>
+                <th>Venda final</th>
+                <th>Data</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clientOpportunities.map((opp) => {
+                const meta = getStatusMeta(opp.status)
+                const finalSellPrice = Number(opp.finalSellPrice || 0)
 
-              return (
-                <button
-                  className="client-page__opp-row"
-                  key={opp.id}
-                  onClick={() => navigate(`/opps/${opp.id}`)}
-                  type="button"
-                >
-                  <span className="client-page__opp-no">{opp.oppNo}</span>
-                  <span className={`n4a-badge ${meta.className}`}>{meta.label}</span>
-                  <span>{opp.saleType}</span>
-                  <strong>{moneyFormatter.format(opp.estSellPrice || 0)}</strong>
-                </button>
-              )
-            })}
-          </div>
+                return (
+                  <tr key={opp.id}>
+                    <td>
+                      <button
+                        className="client-page__opp-link"
+                        onClick={() => navigate(`/opps/${opp.id}`)}
+                        type="button"
+                      >
+                        {opp.oppNo}
+                      </button>
+                    </td>
+                    <td>{opp.title || '—'}</td>
+                    <td>
+                      <span className={`n4a-badge ${meta.className}`}>{meta.label}</span>
+                    </td>
+                    <td>{opp.saleType}</td>
+                    <td>{moneyFormatter.format(opp.estSellPrice || 0)}</td>
+                    <td>{finalSellPrice > 0 ? moneyFormatter.format(finalSellPrice) : '—'}</td>
+                    <td>{formatDate(opp.updatedAt || opp.createdAt)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         ) : (
           <div className="client-page__state">Sem oportunidades</div>
         )}
