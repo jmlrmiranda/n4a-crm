@@ -447,3 +447,38 @@
 - Remover passwords demo do seed quando terminar a janela de testes com dados demo.
 - Configurar remote Git e push dos commits locais.
 - Continuar validação pós-migração (checklist MIGRACAO_LEGACY.md fase 5).
+
+## Actualização 2026-06-23 — fecho Sessão B (me5 UI + u4 UI + permissões)
+
+### Completado nesta sessão
+- d3: filtros por período no dashboard (`dateFrom`/`dateTo`) — commit 8879d66
+- d5: export Excel com `exceljs` (`KPIs`, `Por Vendedor`, `Por Tipo`) — commit 8879d66
+- `xlsx` removido (vulnerabilidade high sem fix); `exceljs@4.4.0` (vuln moderada transitiva `uuid@8.3.2` aceite)
+- me5 UI: `CompaniesPage` — listar, criar, editar, desactivar tenants (`N4A_ADMIN` only) — commit 898c33c
+- `N4AAdminRoute` guard + link "Empresas" no menu
+- Modelo de permissões corrigido (Opção C):
+  - `switch-company` passa a aceitar `N4A_ADMIN` além de `N4A_SUPPORT`
+  - `support@n4a.pt` promovido de `N4A_SUPPORT` para `N4A_ADMIN` na DB de produção
+- u4 UI: `ChangePasswordModal` — própria password no topbar, password de terceiros na `UsersPage` (`ADMIN`) — commit c87afd2
+- Testes funcionais por API validados em todos os blocos (me5, permissões, u4)
+
+### Estado
+- CRM em produção: https://crm.n4a-lab.pt
+- 97 testes a passar
+- Acesso externo ainda dependente do incidente Cloudflare (verificar)
+- `support@n4a.pt` agora `N4A_ADMIN` (provisioning + switch de empresas)
+- Empresa de teste `teste-ui` desactivada na DB (soft delete, a limpar com o seed demo)
+- Repositório ainda sem remote Git configurado
+
+### Roles — estado actual
+- `ADMIN`: admin de empresa (dashboard, utilizadores, alterar passwords da empresa)
+- `VENDEDOR`: comercial (própria password apenas)
+- `N4A_SUPPORT`: switch de empresa
+- `N4A_ADMIN`: switch + provisioning de empresas (gestão de tenants pela UI)
+
+### Próxima sessão (nova thread)
+- Verificar acesso externo após Cloudflare resolver
+- Configurar remote Git e fazer push de TODOS os commits locais (pendente há várias sessões)
+- Remover dados demo do seed + empresa de teste (após janela de testes)
+- d4: relatório PDF (pendente, mais pesado — pdfkit no backend)
+- Continuar validação pós-migração (`MIGRACAO_LEGACY.md` fase 5)
