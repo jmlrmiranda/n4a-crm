@@ -327,3 +327,29 @@
 - Criar utilizadores reais (Miranda e equipa)
 - Remover dados demo do seed de produção
 - Commit e push do estado actual
+
+## Actualização 2026-06-23 — fecho sessão pós-migração
+
+### Completado nesta sessão
+- Auditoria de estado pós-migração confirmada (containers, backups, DB, nginx, tunnel)
+- Diagnóstico acesso externo: cadeia completa correcta — bloqueio é incidente Cloudflare externo
+- Cloudflare tunnel corre no webserver (PID 538), config correcta, aponta para nginx:8080
+- Registry apps.yaml actualizado: migration_status: active, environment: production, ports: 8080
+- Utilizadores reais criados em produção via upsert (bcrypt 12 rounds, tenant N4A):
+  - tiago.cerqueira@n4a.pt (ADMIN)
+  - jorge.miranda@n4a.pt (ADMIN)
+- Script criar-utilizadores-reais.js mantido em api/src/ para reutilização
+
+### Estado
+- CRM em produção: https://crm.n4a-lab.pt
+- 6 utilizadores activos: 2 reais (ADMIN) + 4 demo (a remover em 2/3 dias após testes)
+- Acesso externo bloqueado por incidente Cloudflare — não depende de nós
+- Acesso local confirmado: http://localhost:8080/health → 200
+- DB: 4 users demo + 2 reais, 5 clients, 8 opps (dados demo a remover após testes)
+- Repositório sem remote Git configurado
+
+### Próxima sessão (nova thread)
+- Verificar acesso externo após Cloudflare resolver
+- Remover dados demo do seed (4 users, 5 clients, 8 opps) — só após 2/3 dias de testes
+- Configurar remote Git e fazer push
+- Validação completa pós-migração (checklist MIGRACAO_LEGACY.md fase 5)
