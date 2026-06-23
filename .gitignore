@@ -5,4 +5,5 @@ uploads/
 api/.env
 api/.env.docker
 api/node_modules/
+api/public/
 web/dist/

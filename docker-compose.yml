@@ -4,7 +4,7 @@ services:
     container_name: n4a-crm-api
     restart: unless-stopped
     ports:
-      - "18080:3000"
+      - "8080:3000"
     environment:
       DATABASE_URL: postgresql://crm:${CRM_DB_PASSWORD}@n4a-crm-db:5432/n4a_crm
       JWT_SECRET: ${JWT_SECRET}

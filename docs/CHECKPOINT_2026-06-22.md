@@ -301,3 +301,29 @@
 - Decisão: migrar dados legacy ou arrancar limpo
 - Actualizar CORS_ORIGIN para domínio de produção
 - Actualizar nginx/proxy
+
+## Actualização 2026-06-23 — fecho sessão migração
+
+### Completado nesta sessão
+- Frontend servido pela API Express (express.static + catch-all React Router)
+- app.set("trust proxy", 1) para rate-limit atrás de nginx
+- VITE_API_URL= (URLs relativas em produção)
+- Docker exposto na porta 8080 (alinhado com nginx legacy)
+- CORS_ORIGIN=https://crm.n4a-lab.pt
+- Seed corrido em produção (4 users, 5 clients, 8 opps)
+- fixup-tenant.js: associou clients e opps ao tenant N4A
+- Cloudflare Access removido de todas as aplicações
+- CRM acessível em https://crm.n4a-lab.pt (login funcional)
+- Pipeline bloqueado por Cloudflare Access com degraded performance (incidente activo)
+
+### Estado
+- CRM em produção em https://crm.n4a-lab.pt
+- Cloudflare Access removido — só Tunnel activo
+- Pipeline vai funcionar quando Cloudflare resolver o incidente
+- DB de produção com dados do seed + fixup de tenant
+
+### Próxima sessão (nova thread)
+- Verificar que pipeline carrega após Cloudflare resolver
+- Criar utilizadores reais (Miranda e equipa)
+- Remover dados demo do seed de produção
+- Commit e push do estado actual
