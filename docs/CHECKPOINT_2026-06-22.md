@@ -482,3 +482,33 @@
 - Remover dados demo do seed + empresa de teste (após janela de testes)
 - d4: relatório PDF (pendente, mais pesado — pdfkit no backend)
 - Continuar validação pós-migração (`MIGRACAO_LEGACY.md` fase 5)
+
+## Actualização 2026-06-23 — fecho sessão (remote Git + d4)
+
+### Completado nesta sessão
+- Remote Git configurado: github.com/jmlrmiranda/n4a-crm (privado, SSH via ~/.ssh/id_ed25519_github)
+- Push de TODOS os commits locais — repositório com backup remoto (resolve risco arrastado há várias sessões)
+- d4: ficha PDF interna de oportunidade — GET /api/opps/:id/pdf com pdfkit
+  - cliente, oportunidade, financeiro estimado (sempre), financeiro final (só GANHA)
+  - marca DOCUMENTO INTERNO / CONFIDENCIAL
+  - botão PDF na OpportunityPage (download autenticado via blob)
+- pdfkit@0.19.1 instalado; container API rebuilt (não restart)
+- vulnerabilidades: 17 moderate só em devDependencies (jest/js-yaml), zero HIGH — sem acção
+
+### Estado
+- CRM em produção: https://crm.n4a-lab.pt
+- 97 testes a passar
+- Remote: origin → github.com/jmlrmiranda/n4a-crm (master com tracking)
+- Acesso externo ainda dependente do incidente Cloudflare (verificar)
+
+### Dívida técnica conhecida
+- PDF d4 NÃO foi validado por geração real — confirmar conteúdo/valores na próxima sessão
+- Empresa de teste "teste-ui" desactivada na DB (limpar com seed demo)
+- Passwords demo no seed (remover após janela de testes)
+
+### Próxima sessão (nova thread)
+- Validar geração real do PDF (gerar de uma oportunidade, abrir, confirmar valores)
+- Verificar acesso externo após Cloudflare resolver
+- Acrescentar "git push" ao protocolo SESSAO_FECHAR.md
+- Remover seed demo + empresa de teste
+- Validação pós-migração — MIGRACAO_LEGACY.md fase 5
