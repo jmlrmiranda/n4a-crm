@@ -277,3 +277,27 @@
 ### Próxima sessão
 - Executar docs/MIGRACAO_LEGACY.md
 - Decidir: migrar dados legacy ou arrancar limpo
+
+## Actualização 2026-06-23 — multi-empresa e fecho
+
+### Completado nesta sessão
+- ADR-CRM-003: modelo multi-empresa documentado e aprovado
+- Schema: Company, companyId em User/Client/Opportunity,
+  roles N4A_SUPPORT e N4A_ADMIN
+- Migration: 20260623072538_add_multi_tenant aplicada
+- API: requireTenant, switch-company, /admin/companies
+- Seed: 2 companies (N4A + Cliente Demo), Support User
+- UI: empresa activa no header, dropdown para N4A_SUPPORT
+- 97 testes a passar
+- Isolamento de tenant validado end-to-end no browser
+
+### Estado no fim desta sessão
+- Multi-empresa funcional e testado
+- CRM pronto para migração do legacy
+- Migração cria company N4A e associa todos os dados existentes
+
+### Próxima sessão — migração
+- Executar docs/MIGRACAO_LEGACY.md fase a fase
+- Decisão: migrar dados legacy ou arrancar limpo
+- Actualizar CORS_ORIGIN para domínio de produção
+- Actualizar nginx/proxy
