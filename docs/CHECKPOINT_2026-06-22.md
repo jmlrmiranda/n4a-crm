@@ -353,3 +353,97 @@
 - Remover dados demo do seed (4 users, 5 clients, 8 opps) — só após 2/3 dias de testes
 - Configurar remote Git e fazer push
 - Validação completa pós-migração (checklist MIGRACAO_LEGACY.md fase 5)
+
+## Actualização 2026-06-23 — fecho sessão reporting e admin
+
+### Completado nesta sessão
+- Protocolo de abertura executado: docs obrigatórios lidos, containers verificados e health local confirmado em `http://localhost:8080/health -> 200`.
+- Dashboard reporting:
+  - API `GET /api/dashboard` passou a aceitar `dateFrom` e `dateTo`.
+  - A janela temporal filtra apenas oportunidades GANHA/PERDIDA por `updatedAt`.
+  - Pipeline activo e forecast de próximos 90 dias mantêm a lógica anterior.
+  - Response inclui `date_from` e `date_to`.
+- UI do dashboard:
+  - Date pickers `De` / `Até`.
+  - Botão `Limpar`.
+  - Período apresentado muda entre `Período YYYY-MM` e `De YYYY-MM-DD até YYYY-MM-DD`.
+- Export Excel:
+  - Implementado no frontend com `exceljs`.
+  - Exporta sheets `KPIs`, `Por Vendedor` e `Por Tipo`.
+  - `xlsx` foi removido por vulnerabilidade high sem fix disponível.
+- Commit criado para d3/d5:
+  - `8879d668482ef1d13eb50042d8e4d94d3146bef4`
+  - `feat: dashboard — filtros por período (d3) e export Excel exceljs (d5)`
+- Admin multi-empresa (me5) implementado e validado por API:
+  - `PATCH /admin/companies/:id` para alterar `name`, `slug`, `isActive`.
+  - `DELETE /admin/companies/:id` faz soft delete (`isActive=false`) e desactiva utilizadores da empresa.
+- Utilizadores (u4) implementado e validado por API:
+  - `PATCH /api/users/:id/password`.
+  - Utilizador pode alterar a própria password.
+  - ADMIN pode alterar password de utilizadores da mesma empresa.
+  - Password mínima: 8 caracteres.
+
+### Verificações executadas
+- API: `npm test` passou com 97 testes:
+  - `Test Suites: 5 passed, 5 total`
+  - `Tests: 97 passed, 97 total`
+- Frontend: `npm run lint` passou após implementação do dashboard/export.
+- `npm audit` após trocar para `exceljs`:
+  - `xlsx` já não está instalado.
+  - Persistem 2 vulnerabilidades moderadas via `uuid@8.3.2`, dependência transitiva de `exceljs@4.4.0`.
+  - `npm audit fix --force` faria downgrade para `exceljs@3.4.0` com breaking change; não foi executado.
+- `.gitignore` cobre:
+  - `.env`
+  - `.env.docker`
+  - `node_modules/`
+  - `uploads/`
+- Testes funcionais por API para me5/u4:
+  - Criada empresa temporária via `POST /admin/companies`.
+  - Editada empresa temporária via `PATCH /admin/companies/:id`.
+  - Validados erros `isActive` inválido e PATCH sem campos.
+  - Alterada password do próprio ADMIN temporário.
+  - Alterada password de VENDEDOR temporário por ADMIN da mesma empresa.
+  - Confirmado bloqueio de alteração de password por VENDEDOR a outro utilizador.
+  - Soft delete da empresa temporária confirmou empresa e utilizadores inactivos.
+  - Logins dos utilizadores temporários passaram a `401`.
+- Verificação de secrets:
+  - Não foram encontrados novos secrets reais hardcoded nesta sessão.
+  - Continuam existentes passwords demo no seed (`api/src/seed.js`), pendência já conhecida.
+  - Script `api/src/criar-utilizadores-reais.js` usa `process.env.REAL_USERS_PASSWORD`.
+
+### Ficheiros alterados no estado actual
+- Commitados em `8879d66`:
+  - `api/src/routes.dashboard.js`
+  - `web/package.json`
+  - `web/package-lock.json`
+  - `web/src/pages/DashboardPage.jsx`
+  - `web/src/pages/DashboardPage.css`
+- Incluídos no commit de fecho desta sessão:
+  - `api/src/routes.admin.js`
+  - `api/src/routes.users.js`
+  - `docs/CHECKPOINT_2026-06-22.md`
+  - `docs/PROMPT_ABERTURA_CLAUDE_DESKTOP.md`
+
+### Decisões técnicas tomadas
+- Filtros de período afectam apenas métricas históricas de GANHA/PERDIDA; pipeline activo continua intemporal.
+- Forecast mantém a janela móvel dos próximos 90 dias, independente dos filtros.
+- Export Excel fica 100% no frontend; sem novas dependências no backend.
+- `xlsx` foi rejeitado por vulnerabilidades high sem fix disponível.
+- `exceljs@4.4.0` foi aceite temporariamente apesar de vulnerabilidade moderada transitiva em `uuid`, porque a alternativa sugerida pelo npm implica downgrade com breaking change.
+- DELETE de empresa é soft delete e também desactiva os utilizadores da empresa para impedir login.
+- Alteração de password não exige schema novo e mantém bcrypt via `hashPassword`.
+
+### Estado no fim da sessão
+- CRM em produção continua em `https://crm.n4a-lab.pt`.
+- Backend local em Docker estava activo no início da sessão e health local respondeu 200 fora do sandbox.
+- Base de código com testes API estáveis: 97/97.
+- d3/d5 estão commitados.
+- me5/u4 estão implementados, testados por API e prontos para seguir no commit de fecho.
+- Prompt de abertura para Claude Desktop criada e copiada para `/Users/server/Desktop/PROMPT_ABERTURA_CLAUDE_DESKTOP.md`.
+
+### Pendente para próxima sessão
+- Decidir como tratar as vulnerabilidades moderadas transitivas de `exceljs`.
+- Implementar UI de gestão de empresas e alteração de password, se for necessário operar isto no browser.
+- Remover passwords demo do seed quando terminar a janela de testes com dados demo.
+- Configurar remote Git e push dos commits locais.
+- Continuar validação pós-migração (checklist MIGRACAO_LEGACY.md fase 5).

@@ -134,4 +134,50 @@ router.patch("/:id", async (req, res, next) => {
   }
 });
 
+// PATCH /api/users/:id/password
+// Utilizador só pode alterar a sua própria password
+// ADMIN pode alterar password de qualquer utilizador da mesma empresa
+router.patch("/:id/password", async (req, res, next) => {
+  try {
+    const { password } = req.body || {};
+    const requesterId = req.user.id;
+    const targetId = req.params.id;
+    const isAdmin = req.user.role === "ADMIN";
+
+    if (!req.user.companyId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!password || password.length < 8) {
+      return res.status(400).json({ error: "password deve ter pelo menos 8 caracteres" });
+    }
+
+    // Só pode alterar a própria password, ou ADMIN pode alterar de utilizadores da mesma empresa
+    if (targetId !== requesterId && !isAdmin) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    // Confirma que o utilizador alvo pertence à mesma empresa
+    const target = await prisma.user.findFirst({
+      where: { id: targetId, companyId: req.user.companyId },
+      select: { id: true }
+    });
+
+    if (!target) {
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    const passwordHash = await hashPassword(password);
+
+    await prisma.user.update({
+      where: { id: targetId },
+      data: { passwordHash }
+    });
+
+    return res.status(200).json({ message: "Password actualizada" });
+  } catch (err) {
+    return handlePrismaError(err, res, next);
+  }
+});
+
 module.exports = router;

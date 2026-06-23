@@ -127,4 +127,75 @@ router.post("/companies/:id/support-user", requireN4AAdmin, async (req, res, nex
   }
 });
 
+// PATCH /admin/companies/:id
+// Permite alterar name, slug, isActive
+// Requer N4A_ADMIN
+router.patch("/companies/:id", requireN4AAdmin, async (req, res, next) => {
+  try {
+    const data = {};
+    const body = req.body || {};
+
+    if (Object.prototype.hasOwnProperty.call(body, "name")) {
+      data.name = body.name;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "slug")) {
+      data.slug = body.slug;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "isActive")) {
+      if (typeof body.isActive !== "boolean") {
+        return res.status(400).json({ error: "isActive deve ser boolean" });
+      }
+      data.isActive = body.isActive;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return res.status(400).json({ error: "Nenhum campo para actualizar" });
+    }
+
+    const company = await prisma.company.update({
+      where: { id: req.params.id },
+      data,
+      select: companySelect
+    });
+
+    return res.json(company);
+  } catch (err) {
+    return handlePrismaError(err, res, next);
+  }
+});
+
+// DELETE /admin/companies/:id
+// Desactiva empresa (soft delete: isActive = false)
+// Não apaga dados — apenas impede login dos utilizadores dessa empresa
+// Requer N4A_ADMIN
+router.delete("/companies/:id", requireN4AAdmin, async (req, res, next) => {
+  try {
+    const company = await prisma.company.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, name: true }
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    await prisma.$transaction([
+      prisma.company.update({
+        where: { id: req.params.id },
+        data: { isActive: false }
+      }),
+      prisma.user.updateMany({
+        where: { companyId: req.params.id },
+        data: { isActive: false }
+      })
+    ]);
+
+    return res.status(200).json({ message: `Empresa ${company.name} desactivada` });
+  } catch (err) {
+    return handlePrismaError(err, res, next);
+  }
+});
+
 module.exports = router;
