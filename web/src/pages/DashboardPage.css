@@ -141,3 +141,19 @@
     grid-template-columns: 1fr;
   }
 }
+
+.dashboard-page__filters {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--n4a-space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--n4a-space-4);
+}
+
+.dashboard-page__filters label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--n4a-space-1);
+  font-size: 12px;
+  color: var(--n4a-text-secondary);
+}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import ExcelJS from 'exceljs'
 import api from '../api/client.js'
 import './DashboardPage.css'
 
@@ -21,8 +22,76 @@ function formatCount(value, singular, plural) {
   return `${count} ${count === 1 ? singular : plural}`
 }
 
+async function exportExcel(dashboard) {
+  const wb = new ExcelJS.Workbook()
+
+  const wsKpi = wb.addWorksheet('KPIs')
+  wsKpi.columns = [
+    { header: 'Campo', key: 'campo', width: 30 },
+    { header: 'Valor', key: 'valor', width: 20 },
+  ]
+  wsKpi.addRows([
+    { campo: 'Período', valor: dashboard.period },
+    { campo: 'De', valor: dashboard.date_from || '' },
+    { campo: 'Até', valor: dashboard.date_to || '' },
+    { campo: 'Pipeline Total (€)', valor: dashboard.pipeline_total },
+    { campo: 'Oportunidades Activas', valor: dashboard.pipeline_count },
+    { campo: 'Receita Ganha (€)', valor: dashboard.won_revenue },
+    { campo: 'Negócios Ganhos', valor: dashboard.won_count },
+    { campo: 'Margem Efectiva (€)', valor: dashboard.won_margin },
+    { campo: 'Margem (%)', valor: dashboard.won_margin_pct },
+    { campo: 'Win Rate (%)', valor: dashboard.win_rate },
+    { campo: 'Negócios Perdidos', valor: dashboard.lost_count },
+    { campo: 'Forecast 30d (€)', valor: dashboard.forecast?.next_30 },
+    { campo: 'Forecast 60d (€)', valor: dashboard.forecast?.next_60 },
+    { campo: 'Forecast 90d (€)', valor: dashboard.forecast?.next_90 },
+  ])
+
+  const wsSeller = wb.addWorksheet('Por Vendedor')
+  wsSeller.columns = [
+    { header: 'Vendedor', key: 'vendedor', width: 30 },
+    { header: 'Pipeline (€)', key: 'pipeline', width: 18 },
+    { header: 'Receita Ganha (€)', key: 'receita', width: 20 },
+    { header: 'Margem (€)', key: 'margem', width: 18 },
+    { header: 'Win Rate (%)', key: 'winRate', width: 16 },
+  ]
+  wsSeller.addRows((dashboard.by_seller || []).map((seller) => ({
+    vendedor: seller.seller_name || 'Sem vendedor',
+    pipeline: seller.pipeline_total,
+    receita: seller.won_revenue,
+    margem: seller.won_margin,
+    winRate: seller.win_rate,
+  })))
+
+  const wsType = wb.addWorksheet('Por Tipo')
+  wsType.columns = [
+    { header: 'Tipo', key: 'tipo', width: 24 },
+    { header: 'Pipeline (€)', key: 'pipeline', width: 18 },
+    { header: 'Receita Ganha (€)', key: 'receita', width: 20 },
+  ]
+  wsType.addRows((dashboard.by_type || []).map((type) => ({
+    tipo: type.sale_type,
+    pipeline: type.pipeline_total,
+    receita: type.won_revenue,
+  })))
+
+  const filename = `crm-dashboard-${dashboard.period}${dashboard.date_from ? '-' + dashboard.date_from : ''}.xlsx`
+  const buffer = await wb.xlsx.writeBuffer()
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 function DashboardPage() {
   const [dashboard, setDashboard] = useState(null)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -34,7 +103,11 @@ function DashboardPage() {
       setError('')
 
       try {
-        const { data } = await api.get('/api/dashboard')
+        const params = {}
+        if (dateFrom) params.dateFrom = dateFrom
+        if (dateTo) params.dateTo = dateTo
+
+        const { data } = await api.get('/api/dashboard', { params })
 
         if (!ignore) {
           setDashboard(data)
@@ -56,7 +129,7 @@ function DashboardPage() {
     return () => {
       ignore = true
     }
-  }, [])
+  }, [dateFrom, dateTo])
 
   if (loading) {
     return <div className="dashboard-page__state">A carregar...</div>
@@ -70,13 +143,51 @@ function DashboardPage() {
     return <div className="dashboard-page__state">Sem dados</div>
   }
 
+  const hasDateFilter = Boolean(dashboard.date_from || dashboard.date_to)
+
   return (
     <section className="dashboard-page">
       <header className="dashboard-page__header">
         <div>
+          <div className="dashboard-page__filters">
+            <label>
+              De
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="n4a-input"
+              />
+            </label>
+            <label>
+              Até
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="n4a-input"
+              />
+            </label>
+            <button
+              className="n4a-btn n4a-btn--ghost"
+              onClick={() => { setDateFrom(''); setDateTo('') }}
+            >
+              Limpar
+            </button>
+          </div>
           <h1 className="dashboard-page__title">Dashboard</h1>
-          <p className="dashboard-page__period">Período {dashboard.period}</p>
+          <p className="dashboard-page__period">
+            {hasDateFilter
+              ? `De ${dashboard.date_from || ''} até ${dashboard.date_to || ''}`
+              : `Período ${dashboard.period}`}
+          </p>
         </div>
+        <button
+          className="n4a-btn n4a-btn--secondary"
+          onClick={() => exportExcel(dashboard)}
+        >
+          Exportar Excel
+        </button>
       </header>
 
       <div className="dashboard-page__kpis">

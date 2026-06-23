@@ -187,6 +187,12 @@ router.get("/", async (req, res, next) => {
     const now = new Date();
     const twelveMonthsAgo = new Date(now);
     twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+    const dateFrom = req.query.dateFrom ? new Date(req.query.dateFrom) : null;
+    const dateTo = req.query.dateTo ? new Date(req.query.dateTo) : null;
+    const wonFrom = dateFrom ?? twelveMonthsAgo;
+    const wonTo = dateTo ?? now;
+    const lostFrom = dateFrom ?? twelveMonthsAgo;
+    const lostTo = dateTo ?? now;
 
     const next30 = addDays(now, 30);
     const next60 = addDays(now, 60);
@@ -211,7 +217,7 @@ router.get("/", async (req, res, next) => {
         where: {
           companyId: req.companyId,
           status: "GANHA",
-          updatedAt: { gte: twelveMonthsAgo }
+          updatedAt: { gte: wonFrom, lte: wonTo }
         },
         select: wonSelect
       }),
@@ -219,7 +225,7 @@ router.get("/", async (req, res, next) => {
         where: {
           companyId: req.companyId,
           status: "PERDIDA",
-          updatedAt: { gte: twelveMonthsAgo }
+          updatedAt: { gte: lostFrom, lte: lostTo }
         },
         select: lostSelect
       }),
@@ -239,8 +245,8 @@ router.get("/", async (req, res, next) => {
           companyId: req.companyId,
           OR: [
             { status: { in: ACTIVE_STATUSES } },
-            { status: "GANHA", updatedAt: { gte: twelveMonthsAgo } },
-            { status: "PERDIDA", updatedAt: { gte: twelveMonthsAgo } }
+            { status: "GANHA", updatedAt: { gte: wonFrom, lte: wonTo } },
+            { status: "PERDIDA", updatedAt: { gte: lostFrom, lte: lostTo } }
           ]
         },
         select: groupSelect
@@ -250,7 +256,8 @@ router.get("/", async (req, res, next) => {
           companyId: req.companyId,
           OR: [
             { status: { in: ACTIVE_STATUSES } },
-            { status: "GANHA", updatedAt: { gte: twelveMonthsAgo } }
+            { status: "GANHA", updatedAt: { gte: wonFrom, lte: wonTo } },
+            { status: "PERDIDA", updatedAt: { gte: lostFrom, lte: lostTo } }
           ]
         },
         select: groupSelect
@@ -341,6 +348,8 @@ router.get("/", async (req, res, next) => {
       company_id: req.company.id,
       company_name: req.company.name,
       period: period(now),
+      date_from: dateFrom ? dateFrom.toISOString().slice(0, 10) : null,
+      date_to: dateTo ? dateTo.toISOString().slice(0, 10) : null,
       pipeline_total: round2(pipelineTotal),
       pipeline_count: pipelineOpps.length,
       won_revenue: round2(wonRevenue),
