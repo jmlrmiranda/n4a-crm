@@ -527,3 +527,47 @@
 - Incidente Cloudflare resolvido. Acesso externo a https://crm.n4a-lab.pt funcional.
 - Cadeia completa confirmada: Internet → Cloudflare → Tunnel (webserver) → nginx → 192.168.100.112:8080 → n4a-crm-api
 - Pendente "verificar acesso externo após Cloudflare" REMOVIDO da lista.
+
+## Actualização 2026-06-23 — fecho desenvolvimento (pré-testes v1.0)
+
+### Completado nesta sessão
+- Remote Git GitHub configurado (jmlrmiranda/n4a-crm, privado, SSH) + push de todos os commits
+- d4 validado por geração real (ficha PDF de oportunidade)
+- Cloudflare resolvido — acesso externo a https://crm.n4a-lab.pt funcional
+- Campo `title` na oportunidade (migration add_opportunity_title aplicada em produção, com backup prévio)
+- Histórico de oportunidades enriquecido na página do cliente (título + valores estimados/finais, ordem cronológica)
+- Endpoint GET /api/opps/:id/similar — propostas anteriores do mesmo cliente+saleType (deteção de discrepâncias)
+- Painel "Propostas anteriores semelhantes" + edição inline de título na OpportunityPage
+- Campo título opcional no NewOppModal
+- Match validado end-to-end (renovação suporte 2025→2026 mostra valor anterior)
+
+### ⚠️ NOTA OPERACIONAL CRÍTICA — DEPLOY DO FRONTEND NÃO É AUTOMÁTICO
+O Dockerfile da API NÃO builda o frontend. A API serve estáticos de api/public via express.static.
+Sempre que se altera a UI (web/), é OBRIGATÓRIO correr manualmente:
+  1. cd web && npm run build
+  2. cp -R web/dist/. api/public/
+  3. docker compose --env-file .env.docker up -d --build n4a-crm-api
+api/public/ está no .gitignore — a cópia NÃO entra no Git, é só artefacto de deploy local.
+Se estes passos forem esquecidos, o backend tem as features mas a UI servida fica DESACTUALIZADA silenciosamente.
+TODO v1.0: automatizar via stage multi-build no Dockerfile (build do web + copy para public).
+
+### Estado
+- DESENVOLVIMENTO FECHADO para arranque de testes exaustivos (a partir de 2026-06-24)
+- CRM em produção: https://crm.n4a-lab.pt (acesso externo OK)
+- Frontend novo confirmado a ser servido (assets index-DA92YRbB.js)
+- DB AINDA COM DADOS DE TESTE/DEMO — limpeza só na fase de preparação da v1.0
+- 97 testes a passar; remote sincronizado; 3 migrations aplicadas
+
+### Plano até v1.0 (próximas sessões)
+1. Testes exaustivos da plataforma (Miranda + equipa) — recolher bugs
+2. Limpar DB: remover seed demo, empresa de teste "teste-ui", oportunidades/clientes de teste (incl. as 2 de teste do match)
+3. Correção dos bugs identificados nos testes
+4. Manual de utilizador + manual de administrador
+5. Fechar versão 1.0 (tag git v1.0.0)
+
+### Dívida/pendências conhecidas
+- Deploy do frontend manual (ver nota crítica acima) — automatizar na v1.0
+- Backup 0B falhado em /Users/server/backups/ (limpar)
+- Separador de milhar no PDF abaixo de 10.000 (cosmético)
+- Acrescentar git push ao protocolo SESSAO_FECHAR.md
+- Validação pós-migração MIGRACAO_LEGACY.md fase 5
