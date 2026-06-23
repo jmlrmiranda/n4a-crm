@@ -469,6 +469,20 @@ function OpportunityPage() {
     }
   }
 
+  async function downloadPdf() {
+    try {
+      const response = await api.get(`/api/opps/${id}/pdf`, { responseType: 'blob' })
+      const url = URL.createObjectURL(response.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `oportunidade-${opportunity.oppNo}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError('Não foi possível gerar o PDF.')
+    }
+  }
+
   if (loading) {
     return <div className="opportunity-page__state">A carregar...</div>
   }
@@ -534,6 +548,9 @@ function OpportunityPage() {
 
         <div className="opportunity-page__status-actions">
           <span className={`n4a-badge ${meta.className}`}>{meta.label}</span>
+          <button className="n4a-btn n4a-btn--ghost" onClick={downloadPdf} type="button">
+            PDF
+          </button>
           {canAdvanceStatus && (
             <button
               className="n4a-btn n4a-btn--ghost"

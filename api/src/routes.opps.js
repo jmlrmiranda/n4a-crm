@@ -1,5 +1,6 @@
 const express = require("express");
 const multer = require("multer");
+const PDFDocument = require("pdfkit");
 const prisma = require("./prisma");
 const { requireAdmin } = require("./middleware.auth");
 const { serializeOpp } = require("./finance");
@@ -94,6 +95,22 @@ const oppDetailSelect = {
       note: true
     },
     orderBy: { date: "asc" }
+  }
+};
+
+const oppPdfSelect = {
+  ...oppDetailSelect,
+  client: {
+    select: {
+      id: true,
+      clientNo: true,
+      name: true,
+      nif: true,
+      responsibleName: true,
+      email: true,
+      phone: true,
+      address: true
+    }
   }
 };
 
@@ -666,6 +683,129 @@ router.get("/:id/attachments", async (req, res, next) => {
     });
 
     return res.json(attachments);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.get("/:id/pdf", async (req, res, next) => {
+  try {
+    const opp = await findVisibleOpp(req.params.id, req.user, req.companyId, oppPdfSelect);
+
+    if (!opp) {
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    const data = serializeOpp(opp);
+
+    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const filename = `oportunidade-${data.oppNo}.pdf`;
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    doc.pipe(res);
+
+    const eur = (v) =>
+      new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(Number(v || 0));
+    const dt = (v) =>
+      v
+        ? new Intl.DateTimeFormat("pt-PT", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric"
+          }).format(new Date(v))
+        : "—";
+    const MAGENTA = "#e91e8c";
+    const MUTED = "#666666";
+
+    // Cabeçalho
+    doc
+      .fillColor(MAGENTA)
+      .fontSize(20)
+      .text("N4A", { continued: true })
+      .fillColor("#000000")
+      .fontSize(12)
+      .text("  ·  Ficha de Oportunidade");
+    doc.moveDown(0.2);
+    doc.fillColor(MUTED).fontSize(8).text("DOCUMENTO INTERNO · CONFIDENCIAL · NÃO DISTRIBUIR AO CLIENTE");
+    doc.moveDown(0.5);
+    doc.fillColor("#000000").fontSize(14).text(`${data.oppNo} — ${data.client?.name || "Cliente"}`);
+    doc.fillColor(MUTED).fontSize(8).text(`Gerado em ${dt(new Date())}`);
+    doc.moveDown(1);
+
+    // Helper de secção
+    const section = (title) => {
+      doc.moveDown(0.6);
+      doc.fillColor(MAGENTA).fontSize(11).text(title.toUpperCase());
+      doc.moveTo(doc.x, doc.y).lineTo(545, doc.y).strokeColor(MAGENTA).lineWidth(0.5).stroke();
+      doc.moveDown(0.4);
+      doc.fillColor("#000000").fontSize(10);
+    };
+    const row = (label, value) => {
+      doc
+        .fontSize(10)
+        .fillColor(MUTED)
+        .text(label, { continued: true, width: 200 })
+        .fillColor("#000000")
+        .text(`   ${value}`);
+    };
+
+    // Cliente
+    section("Cliente");
+    row("Nome", data.client?.name || "—");
+    row("NIF", data.client?.nif || "—");
+    row("Responsável", data.client?.responsibleName || "—");
+    row("Email", data.client?.email || "—");
+    row("Telefone", data.client?.phone || "—");
+    row("Morada", data.client?.address || "—");
+
+    // Oportunidade
+    section("Oportunidade");
+    row("Tipo de venda", data.saleType);
+    row("Estado", data.status);
+    row("Vendedor", data.seller?.name || "—");
+    row("Fecho esperado", dt(data.expectedCloseDate));
+    row("Proposta enviada", dt(data.proposalSentDate));
+
+    if (data.lossReason) {
+      row("Motivo de perda", data.lossReason);
+    }
+
+    // Financeiro estimado
+    section("Financeiro estimado");
+    row("Serviços", eur(data.estServices));
+    row("Software", eur(data.estSoftware));
+    row("Hardware", eur(data.estHardware));
+    row("Manutenção", eur(data.estMaintenance));
+    doc.moveDown(0.2);
+    row("Venda estimada", eur(data.estSellPrice));
+    row("Custo estimado", eur(data.estCostPrice));
+    row("Margem prevista", `${eur(data.estGrossMargin)}  (${data.estGrossMarginPct}%)`);
+
+    // Financeiro final
+    if (data.status === "GANHA") {
+      section("Financeiro final");
+      row("Serviços", eur(data.finalServices));
+      row("Software", eur(data.finalSoftware));
+      row("Hardware", eur(data.finalHardware));
+      row("Manutenção", eur(data.finalMaintenance));
+      doc.moveDown(0.2);
+      row("Venda final", eur(data.finalSellPrice));
+      row("Custo real", eur(data.realCostPrice));
+      row("Margem efectiva", `${eur(data.finalMargin)}  (${data.finalMarginPct}%)`);
+    }
+
+    // Rodapé
+    doc.moveDown(2);
+    doc
+      .fillColor(MUTED)
+      .fontSize(7)
+      .text("N4A CRM · Ficha gerada automaticamente · Uso interno", 50, 800, {
+        align: "center",
+        width: 495
+      });
+
+    return doc.end();
   } catch (err) {
     return next(err);
   }
