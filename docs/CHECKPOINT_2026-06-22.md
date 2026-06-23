@@ -512,3 +512,13 @@
 - Acrescentar "git push" ao protocolo SESSAO_FECHAR.md
 - Remover seed demo + empresa de teste
 - Validação pós-migração — MIGRACAO_LEGACY.md fase 5
+
+## Actualização 2026-06-23 — validação d4 (PDF)
+
+### d4 validado por geração real — dívida técnica saldada
+- PDF gerado de oportunidade GANHA (O00001 — Município de Lisboa): HTTP 200, %PDF v1.3, 2 páginas, 3050 bytes
+- Estrutura confirmada: cabeçalho, aviso DOCUMENTO INTERNO/CONFIDENCIAL, Cliente, Oportunidade, Financeiro Estimado, Financeiro Final
+- Valores aritmeticamente corretos (venda estimada 58.000€, margem 62,07%; venda final 58.000€, margem efectiva 62,93%)
+- Secção Financeiro Final aparece só em GANHA — confirmado
+- Visibilidade confirmada: VENDEDOR (Ana) recebe 404 em oportunidade de outro vendedor; ADMIN recebe 200
+- Nota cosmética menor (não bloqueante): Intl.NumberFormat omite separador de milhar abaixo de 10.000 (ex: "8000,00 €")
