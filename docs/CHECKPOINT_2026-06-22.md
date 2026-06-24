@@ -571,3 +571,17 @@ TODO v1.0: automatizar via stage multi-build no Dockerfile (build do web + copy 
 - Separador de milhar no PDF abaixo de 10.000 (cosmético)
 - Acrescentar git push ao protocolo SESSAO_FECHAR.md
 - Validação pós-migração MIGRACAO_LEGACY.md fase 5
+
+## Actualização 2026-06-24 — correção upload + documentação v1.0
+
+### Feito após o checkpoint anterior
+- fix: bug de upload de anexos corrigido (EACCES, permissões do volume) — commit 9c76563
+  - entrypoint arranca root, chown node:node em UPLOAD_DIR, baixa privilégios com su-exec
+  - validado: upload devolve 201
+- Documentação v1.0 produzida (PDFs, fora do repo, guardados pela Miranda):
+  - Manual de Utilizador, Manual de Administrador, Checklist de Testes Humanos
+- Roadmap: adicionada feature futura o14 — OCR de faturas + deteção de incongruências (v1.1/v2, complexidade alta)
+
+### Próximo
+- Testes exaustivos pela Miranda+equipa usando a checklist
+- Depois: limpar DB, corrigir bugs, ajustar manuais conforme testes, fechar v1.0 (tag v1.0.0)
