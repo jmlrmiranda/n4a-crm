@@ -574,14 +574,25 @@ TODO v1.0: automatizar via stage multi-build no Dockerfile (build do web + copy 
 
 ## Actualização 2026-06-24 — correção upload + documentação v1.0
 
-### Feito após o checkpoint anterior
+### Feito nesta sessão
 - fix: bug de upload de anexos corrigido (EACCES, permissões do volume) — commit 9c76563
-  - entrypoint arranca root, chown node:node em UPLOAD_DIR, baixa privilégios com su-exec
-  - validado: upload devolve 201
+  - entrypoint arranca como root, faz chown node:node em UPLOAD_DIR, baixa privilégios com su-exec
+  - Dockerfile: instala su-exec, garante /app/uploads com dono node
+  - validado: upload devolve HTTP 201 e anexo aparece na lista
+- Bug encontrado nos testes: era 400 Bad Request no POST /api/opps/:id/attachments (volume crm-uploads montado root:root, app corre como node)
 - Documentação v1.0 produzida (PDFs, fora do repo, guardados pela Miranda):
   - Manual de Utilizador, Manual de Administrador, Checklist de Testes Humanos
 - Roadmap: adicionada feature futura o14 — OCR de faturas + deteção de incongruências (v1.1/v2, complexidade alta)
 
-### Próximo
-- Testes exaustivos pela Miranda+equipa usando a checklist
-- Depois: limpar DB, corrigir bugs, ajustar manuais conforme testes, fechar v1.0 (tag v1.0.0)
+### Estado
+- CRM em produção: https://crm.n4a-lab.pt (acesso externo OK)
+- 97 testes a passar; remote sincronizado (master ↔ origin/master)
+- DB ainda com dados de teste/demo + 1 anexo de teste (teste.pdf) — limpar na fase v1.0
+- Bug de upload RESOLVIDO
+
+### Próxima sessão (v1.0)
+- Testes exaustivos pela Miranda+equipa usando a checklist (recolher bugs)
+- Limpar DB: seed demo, empresa teste-ui, oportunidades/anexos de teste
+- Corrigir bugs dos testes
+- Ajustar manuais conforme discrepâncias encontradas
+- Fechar v1.0 (tag git v1.0.0)
