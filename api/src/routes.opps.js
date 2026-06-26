@@ -1,4 +1,5 @@
 const express = require("express");
+const fs = require("fs/promises");
 const multer = require("multer");
 const PDFDocument = require("pdfkit");
 const prisma = require("./prisma");
@@ -234,6 +235,30 @@ function parseDecimalValue(value) {
   return number;
 }
 
+function parseNonNegativeDecimalValue(value) {
+  if (value === undefined) {
+    throw new Error("invalid_decimal");
+  }
+
+  const number = parseDecimalValue(value);
+
+  if (number < 0) {
+    throw new Error("invalid_decimal");
+  }
+
+  return number;
+}
+
+function parseRequiredDateValue(value) {
+  const date = parseDateValue(value);
+
+  if (!date) {
+    throw new Error("invalid_date");
+  }
+
+  return date;
+}
+
 function assignIfPresent(data, body, field, parser) {
   if (Object.prototype.hasOwnProperty.call(body, field)) {
     data[field] = parser(body[field]);
@@ -253,6 +278,30 @@ function uploadFile(req, res, next) {
 
     return next();
   });
+}
+
+async function unlinkFile(filePath) {
+  if (!filePath) {
+    return;
+  }
+
+  try {
+    await fs.unlink(filePath);
+  } catch (err) {
+    if (err.code !== "ENOENT") {
+      console.warn(`Não foi possível remover ficheiro ${filePath}: ${err.message}`);
+    }
+  }
+}
+
+function buildAdjudicationData(body) {
+  return {
+    finalServices: parseNonNegativeDecimalValue(body.finalServices),
+    finalSoftware: parseNonNegativeDecimalValue(body.finalSoftware),
+    finalHardware: parseNonNegativeDecimalValue(body.finalHardware),
+    finalMaintenance: parseNonNegativeDecimalValue(body.finalMaintenance),
+    billingStartDate: parseRequiredDateValue(body.billingStartDate)
+  };
 }
 
 router.get("/", async (req, res, next) => {
@@ -479,6 +528,10 @@ router.post("/:id/status", async (req, res, next) => {
       return res.status(400).json({ error: "toStatus é obrigatório" });
     }
 
+    if (toStatus === "GANHA") {
+      return res.status(422).json({ error: "ganha_requer_adjudicacao" });
+    }
+
     if (toStatus === "PERDIDA" && !lossReason) {
       return res.status(400).json({ error: "lossReason é obrigatório" });
     }
@@ -629,12 +682,13 @@ router.get("/:id/contacts", async (req, res, next) => {
 
 router.post("/:id/attachments", async (req, res, next) => {
   try {
-    const existing = await findVisibleOpp(req.params.id, req.user, req.companyId, { id: true });
+    const existing = await findVisibleOpp(req.params.id, req.user, req.companyId, { id: true, status: true });
 
     if (!existing) {
       return res.status(404).json({ error: "Not found" });
     }
 
+    req.visibleOpportunity = existing;
     return next();
   } catch (err) {
     return next(err);
@@ -648,22 +702,55 @@ router.post("/:id/attachments", async (req, res, next) => {
     }
 
     if (!attachmentTypes.includes(type)) {
+      await unlinkFile(req.file.path);
       return res.status(400).json({ error: "type inválido" });
     }
 
     if (type === "PROPOSTA") {
-      const adjudicated = await prisma.attachment.findFirst({
-        where: {
-          oppId: req.params.id,
-          type: "PROPOSTA",
-          adjudicada: true
-        },
-        select: { id: true }
+      if (req.visibleOpportunity.status === "GANHA") {
+        await unlinkFile(req.file.path);
+        return res.status(409).json({ error: "desadjudique antes de substituir a proposta" });
+      }
+
+      let oldProposalPaths = [];
+      const attachment = await prisma.$transaction(async (tx) => {
+        const oldProposals = await tx.attachment.findMany({
+          where: {
+            oppId: req.params.id,
+            type: "PROPOSTA"
+          },
+          select: {
+            id: true,
+            path: true
+          }
+        });
+
+        oldProposalPaths = oldProposals.map((proposal) => proposal.path).filter(Boolean);
+
+        if (oldProposals.length > 0) {
+          await tx.attachment.deleteMany({
+            where: {
+              oppId: req.params.id,
+              type: "PROPOSTA"
+            }
+          });
+        }
+
+        return tx.attachment.create({
+          data: {
+            oppId: req.params.id,
+            type,
+            filename: req.file.originalname,
+            path: req.file.path,
+            adjudicada: false
+          },
+          select: attachmentSelect
+        });
       });
 
-      if (adjudicated) {
-        return res.status(409).json({ error: "já existe proposta adjudicada" });
-      }
+      await Promise.all(oldProposalPaths.map((filePath) => unlinkFile(filePath)));
+
+      return res.status(201).json(attachment);
     }
 
     const attachment = await prisma.attachment.create({
@@ -679,13 +766,110 @@ router.post("/:id/attachments", async (req, res, next) => {
 
     return res.status(201).json(attachment);
   } catch (err) {
+    await unlinkFile(req.file?.path);
     return handlePrismaError(err, res, next);
   }
 });
 
 router.patch("/:id/attachments/:attId/adjudicar", requireAdmin, async (req, res, next) => {
   try {
-    const existing = await findVisibleOpp(req.params.id, req.user, req.companyId, { id: true });
+    const existing = await findVisibleOpp(req.params.id, req.user, req.companyId, {
+      id: true,
+      status: true
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    if (existing.status === "PERDIDA") {
+      return res.status(422).json({ error: "oportunidade_perdida" });
+    }
+
+    if (existing.status === "GANHA") {
+      return res.status(409).json({ error: "oportunidade_ja_ganha" });
+    }
+
+    const attachment = await prisma.attachment.findFirst({
+      where: {
+        id: req.params.attId,
+        oppId: req.params.id
+      },
+      select: {
+        id: true,
+        type: true,
+        filename: true
+      }
+    });
+
+    if (!attachment || attachment.type !== "PROPOSTA") {
+      return res.status(400).json({ error: "attachment inválido" });
+    }
+
+    const adjudicationData = buildAdjudicationData(req.body || {});
+
+    const opportunity = await prisma.$transaction(async (tx) => {
+      await tx.opportunity.update({
+        where: { id: req.params.id },
+        data: {
+          ...adjudicationData,
+          status: "GANHA",
+          archived: false,
+          lossReason: null
+        }
+      });
+
+      await tx.attachment.updateMany({
+        where: {
+          oppId: req.params.id,
+          type: "PROPOSTA",
+          id: { not: req.params.attId }
+        },
+        data: { adjudicada: false }
+      });
+
+      await tx.attachment.update({
+        where: { id: req.params.attId },
+        data: { adjudicada: true }
+      });
+
+      await tx.opportunityStatusHistory.create({
+        data: {
+          oppId: req.params.id,
+          fromStatus: existing.status,
+          toStatus: "GANHA",
+          note: `Proposta adjudicada: ${attachment.filename}`,
+          changedBy: req.user.name
+        }
+      });
+
+      return tx.opportunity.findUnique({
+        where: { id: req.params.id },
+        select: oppDetailSelect
+      });
+    });
+
+    return res.json(serializeOpp(opportunity));
+  } catch (err) {
+    if (err.message === "invalid_date") {
+      return res.status(400).json({ error: "billingStartDate inválida" });
+    }
+
+    if (err.message === "invalid_decimal") {
+      return res.status(400).json({ error: "valores finais inválidos" });
+    }
+
+    return handlePrismaError(err, res, next);
+  }
+});
+
+router.patch("/:id/attachments/:attId/desadjudicar", requireAdmin, async (req, res, next) => {
+  try {
+    const existing = await findVisibleOpp(req.params.id, req.user, req.companyId, {
+      id: true,
+      status: true,
+      realCostPrice: true
+    });
 
     if (!existing) {
       return res.status(404).json({ error: "Not found" });
@@ -698,7 +882,8 @@ router.patch("/:id/attachments/:attId/adjudicar", requireAdmin, async (req, res,
       },
       select: {
         id: true,
-        type: true
+        type: true,
+        adjudicada: true
       }
     });
 
@@ -706,25 +891,58 @@ router.patch("/:id/attachments/:attId/adjudicar", requireAdmin, async (req, res,
       return res.status(400).json({ error: "attachment inválido" });
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
-      await tx.attachment.updateMany({
-        where: {
-          oppId: req.params.id,
-          type: "PROPOSTA",
-          adjudicada: true,
-          id: { not: req.params.attId }
-        },
+    if (!attachment.adjudicada) {
+      return res.status(409).json({ error: "proposta_nao_adjudicada" });
+    }
+
+    if (Number(existing.realCostPrice || 0) > 0) {
+      return res.status(409).json({ error: "desadjudicacao_bloqueada_por_custo_real" });
+    }
+
+    const deliveryDocument = await prisma.attachment.findFirst({
+      where: {
+        oppId: req.params.id,
+        type: { in: ["COMPRA", "FATURA"] }
+      },
+      select: { id: true }
+    });
+
+    if (deliveryDocument) {
+      return res.status(409).json({ error: "desadjudicacao_bloqueada_por_documentos" });
+    }
+
+    const opportunity = await prisma.$transaction(async (tx) => {
+      await tx.attachment.update({
+        where: { id: req.params.attId },
         data: { adjudicada: false }
       });
 
-      return tx.attachment.update({
-        where: { id: req.params.attId },
-        data: { adjudicada: true },
-        select: attachmentSelect
+      await tx.opportunity.update({
+        where: { id: req.params.id },
+        data: {
+          status: "NEGOCIACAO",
+          archived: false,
+          lossReason: null
+        }
+      });
+
+      await tx.opportunityStatusHistory.create({
+        data: {
+          oppId: req.params.id,
+          fromStatus: existing.status,
+          toStatus: "NEGOCIACAO",
+          note: "Adjudicação revertida",
+          changedBy: req.user.name
+        }
+      });
+
+      return tx.opportunity.findUnique({
+        where: { id: req.params.id },
+        select: oppDetailSelect
       });
     });
 
-    return res.json(updated);
+    return res.json(serializeOpp(opportunity));
   } catch (err) {
     return handlePrismaError(err, res, next);
   }

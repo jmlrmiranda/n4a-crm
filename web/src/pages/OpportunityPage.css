@@ -222,6 +222,17 @@
   gap: 14px;
 }
 
+.opportunity-page__inline-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.opportunity-page__inline-subtitle {
+  color: var(--n4a-text-secondary);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
 .opportunity-page__form-grid {
   display: grid;
   gap: 12px;

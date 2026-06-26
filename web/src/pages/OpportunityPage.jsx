@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client.js'
+import { useAuth } from '../contexts/AuthContext.jsx'
 import './OpportunityPage.css'
 
 const moneyFormatter = new Intl.NumberFormat('pt-PT', {
@@ -40,8 +41,8 @@ const statusMeta = {
 const statusTransitions = {
   ABERTA: ['PROPOSTA_EM_PREPARACAO', 'PERDIDA'],
   PROPOSTA_EM_PREPARACAO: ['PROPOSTA_ENVIADA', 'PERDIDA'],
-  PROPOSTA_ENVIADA: ['NEGOCIACAO', 'GANHA', 'PERDIDA'],
-  NEGOCIACAO: ['GANHA', 'PERDIDA'],
+  PROPOSTA_ENVIADA: ['NEGOCIACAO', 'PERDIDA'],
+  NEGOCIACAO: ['PERDIDA'],
 }
 
 const contactChannels = ['Reunião', 'Telefone', 'Email', 'Outro']
@@ -54,11 +55,15 @@ const pipelineFinancialFields = [
   'estCostPrice',
 ]
 
-const finalFinancialFields = [
+const finalSaleFinancialFields = [
   'finalServices',
   'finalSoftware',
   'finalHardware',
   'finalMaintenance',
+]
+
+const finalFinancialFields = [
+  ...finalSaleFinancialFields,
   'realCostPrice',
 ]
 
@@ -103,10 +108,23 @@ function getStatusMeta(status) {
 }
 
 function getTodayInputValue() {
-  const now = new Date()
-  const timezoneOffsetMs = now.getTimezoneOffset() * 60 * 1000
+  return toDateInputValue(new Date())
+}
 
-  return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 10)
+function toDateInputValue(value) {
+  if (!value) {
+    return ''
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+
+  const timezoneOffsetMs = date.getTimezoneOffset() * 60 * 1000
+
+  return new Date(date.getTime() - timezoneOffsetMs).toISOString().slice(0, 10)
 }
 
 function getFinancialValue(value) {
@@ -118,6 +136,16 @@ function buildFinancialForm(opportunity) {
     form[field] = getFinancialValue(opportunity[field])
     return form
   }, {})
+}
+
+function buildAdjudicationForm(opportunity) {
+  return {
+    billingStartDate: toDateInputValue(opportunity.billingStartDate) || getTodayInputValue(),
+    finalHardware: getFinancialValue(opportunity.estHardware),
+    finalMaintenance: getFinancialValue(opportunity.estMaintenance),
+    finalServices: getFinancialValue(opportunity.estServices),
+    finalSoftware: getFinancialValue(opportunity.estSoftware),
+  }
 }
 
 function parseFinancialInput(value) {
@@ -179,6 +207,7 @@ function FinancialInputRow({ label, onChange, value }) {
 function OpportunityPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [opportunity, setOpportunity] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -207,6 +236,9 @@ function OpportunityPage() {
   const [uploadError, setUploadError] = useState('')
   const [uploadSaving, setUploadSaving] = useState(false)
   const [adjudicatingAttachmentId, setAdjudicatingAttachmentId] = useState('')
+  const [deadjudicatingAttachmentId, setDeadjudicatingAttachmentId] = useState('')
+  const [adjudicationTarget, setAdjudicationTarget] = useState(null)
+  const [adjudicationForm, setAdjudicationForm] = useState(null)
   const [adjudicateError, setAdjudicateError] = useState('')
   const [archiveSaving, setArchiveSaving] = useState(false)
   const [archiveError, setArchiveError] = useState('')
@@ -403,7 +435,11 @@ function OpportunityPage() {
 
     const editableFields = [
       ...pipelineFinancialFields,
-      ...(shouldEditFinalFinancials(opportunity) ? finalFinancialFields : []),
+      ...(shouldEditFinalFinancials(opportunity)
+        ? opportunity.status === 'GANHA'
+          ? ['realCostPrice']
+          : finalFinancialFields
+        : []),
     ]
     const payload = {}
 
@@ -433,7 +469,7 @@ function OpportunityPage() {
   }
 
   function openUploadForm() {
-    setUploadForm({ file: null, type: 'PROPOSTA' })
+    setUploadForm({ file: null, type: opportunity.status === 'GANHA' ? 'COMPRA' : 'PROPOSTA' })
     setUploadError('')
     setUploadOpen(true)
   }
@@ -448,6 +484,11 @@ function OpportunityPage() {
       return
     }
 
+    if (uploadForm.type === 'PROPOSTA' && opportunity.status === 'GANHA') {
+      setUploadError('Desadjudica a oportunidade antes de substituir a proposta.')
+      return
+    }
+
     const formData = new FormData()
     formData.append('type', uploadForm.type)
     formData.append('file', uploadForm.file)
@@ -458,7 +499,11 @@ function OpportunityPage() {
       const { data } = await api.post(`/api/opps/${id}/attachments`, formData)
 
       setOpportunity((current) => {
-        const attachments = [...(current.attachments || []), data].sort(
+        const currentAttachments =
+          uploadForm.type === 'PROPOSTA'
+            ? (current.attachments || []).filter((attachment) => attachment.type !== 'PROPOSTA')
+            : current.attachments || []
+        const attachments = [...currentAttachments, data].sort(
           (a, b) => new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime(),
         )
 
@@ -466,40 +511,102 @@ function OpportunityPage() {
       })
       setUploadOpen(false)
       setUploadForm({ file: null, type: 'PROPOSTA' })
-    } catch {
-      setUploadError('Não foi possível carregar o documento.')
+    } catch (err) {
+      if (err.response?.status === 409) {
+        setUploadError('Desadjudica a oportunidade antes de substituir a proposta.')
+      } else {
+        setUploadError('Não foi possível carregar o documento.')
+      }
     } finally {
       setUploadSaving(false)
     }
   }
 
-  async function handleAdjudicateAttachment(attachmentId) {
+  function openAdjudicationForm(attachment) {
     setAdjudicateError('')
-    setAdjudicatingAttachmentId(attachmentId)
+    setAdjudicationTarget(attachment)
+    setAdjudicationForm(buildAdjudicationForm(opportunity))
+  }
+
+  function closeAdjudicationForm() {
+    setAdjudicationTarget(null)
+    setAdjudicationForm(null)
+  }
+
+  function updateAdjudicationField(field, value) {
+    setAdjudicationForm((current) => ({ ...current, [field]: value }))
+  }
+
+  async function handleAdjudicationSubmit(event) {
+    event.preventDefault()
+    setAdjudicateError('')
+
+    if (!adjudicationTarget || !adjudicationForm?.billingStartDate) {
+      setAdjudicateError('Preenche a data de início de entrega/facturação.')
+      return
+    }
+
+    const payload = { billingStartDate: adjudicationForm.billingStartDate }
+
+    for (const field of finalSaleFinancialFields) {
+      const number = parseFinancialInput(adjudicationForm[field])
+
+      if (number === null || number < 0) {
+        setAdjudicateError('Confirma os valores finais da venda.')
+        return
+      }
+
+      payload[field] = number
+    }
+
+    setAdjudicatingAttachmentId(adjudicationTarget.id)
 
     try {
       const { data } = await api.patch(
-        `/api/opps/${id}/attachments/${attachmentId}/adjudicar`,
+        `/api/opps/${id}/attachments/${adjudicationTarget.id}/adjudicar`,
+        payload,
       )
 
-      setOpportunity((current) => ({
-        ...current,
-        attachments: (current.attachments || []).map((attachment) => {
-          if (attachment.id === data.id) {
-            return data
-          }
-
-          if (attachment.type === 'PROPOSTA') {
-            return { ...attachment, adjudicada: false }
-          }
-
-          return attachment
-        }),
-      }))
-    } catch {
-      setAdjudicateError('Não foi possível adjudicar a proposta.')
+      setOpportunity(data)
+      closeAdjudicationForm()
+    } catch (err) {
+      if (err.response?.status === 403) {
+        setAdjudicateError('Sem permissão para adjudicar a proposta.')
+      } else if (err.response?.status === 409) {
+        setAdjudicateError('A oportunidade já está ganha. Desadjudica antes de voltar a adjudicar.')
+      } else {
+        setAdjudicateError('Não foi possível adjudicar a proposta.')
+      }
     } finally {
       setAdjudicatingAttachmentId('')
+    }
+  }
+
+  async function handleDeadjudicateAttachment(attachmentId) {
+    setAdjudicateError('')
+    setDeadjudicatingAttachmentId(attachmentId)
+
+    try {
+      const { data } = await api.patch(
+        `/api/opps/${id}/attachments/${attachmentId}/desadjudicar`,
+      )
+
+      setOpportunity(data)
+      closeAdjudicationForm()
+    } catch (err) {
+      const errorCode = err.response?.data?.error
+
+      if (errorCode === 'desadjudicacao_bloqueada_por_custo_real') {
+        setAdjudicateError('Não é possível desadjudicar porque já existe custo real.')
+      } else if (errorCode === 'desadjudicacao_bloqueada_por_documentos') {
+        setAdjudicateError('Não é possível desadjudicar porque já existem faturas associadas.')
+      } else if (err.response?.status === 403) {
+        setAdjudicateError('Sem permissão para desadjudicar a proposta.')
+      } else {
+        setAdjudicateError('Não foi possível desadjudicar a proposta.')
+      }
+    } finally {
+      setDeadjudicatingAttachmentId('')
     }
   }
 
@@ -550,7 +657,9 @@ function OpportunityPage() {
   const availableTransitions = statusTransitions[opportunity.status] || []
   const canAdvanceStatus = availableTransitions.length > 0
   const canToggleArchive = !['GANHA', 'PERDIDA'].includes(opportunity.status)
+  const canAdmin = ['ADMIN', 'N4A_SUPPORT'].includes(user?.role)
   const showFinalFinancialInputs = shouldEditFinalFinancials(opportunity)
+  const showFinalSaleInputs = showFinalFinancialInputs && opportunity.status !== 'GANHA'
   const editEstSellPrice = financialForm
     ? sumFinancialFields(financialForm, [
         'estServices',
@@ -821,26 +930,49 @@ function OpportunityPage() {
                 {showFinalFinancialInputs && (
                   <>
                     <div className="opportunity-page__finance-divider">Fecho</div>
-                    <FinancialInputRow
-                      label="Serviços finais"
-                      onChange={(value) => updateFinancialField('finalServices', value)}
-                      value={financialForm.finalServices}
-                    />
-                    <FinancialInputRow
-                      label="Software final"
-                      onChange={(value) => updateFinancialField('finalSoftware', value)}
-                      value={financialForm.finalSoftware}
-                    />
-                    <FinancialInputRow
-                      label="Hardware final"
-                      onChange={(value) => updateFinancialField('finalHardware', value)}
-                      value={financialForm.finalHardware}
-                    />
-                    <FinancialInputRow
-                      label="Manutenção final"
-                      onChange={(value) => updateFinancialField('finalMaintenance', value)}
-                      value={financialForm.finalMaintenance}
-                    />
+                    {showFinalSaleInputs ? (
+                      <>
+                        <FinancialInputRow
+                          label="Serviços finais"
+                          onChange={(value) => updateFinancialField('finalServices', value)}
+                          value={financialForm.finalServices}
+                        />
+                        <FinancialInputRow
+                          label="Software final"
+                          onChange={(value) => updateFinancialField('finalSoftware', value)}
+                          value={financialForm.finalSoftware}
+                        />
+                        <FinancialInputRow
+                          label="Hardware final"
+                          onChange={(value) => updateFinancialField('finalHardware', value)}
+                          value={financialForm.finalHardware}
+                        />
+                        <FinancialInputRow
+                          label="Manutenção final"
+                          onChange={(value) => updateFinancialField('finalMaintenance', value)}
+                          value={financialForm.finalMaintenance}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <FinancialRow
+                          label="Serviços finais"
+                          value={formatMoney(financialForm.finalServices)}
+                        />
+                        <FinancialRow
+                          label="Software final"
+                          value={formatMoney(financialForm.finalSoftware)}
+                        />
+                        <FinancialRow
+                          label="Hardware final"
+                          value={formatMoney(financialForm.finalHardware)}
+                        />
+                        <FinancialRow
+                          label="Manutenção final"
+                          value={formatMoney(financialForm.finalMaintenance)}
+                        />
+                      </>
+                    )}
                     <FinancialInputRow
                       label="Custo real"
                       onChange={(value) => updateFinancialField('realCostPrice', value)}
@@ -1124,7 +1256,9 @@ function OpportunityPage() {
                   }
                   value={uploadForm.type}
                 >
-                  <option value="PROPOSTA">Proposta</option>
+                  <option disabled={opportunity.status === 'GANHA'} value="PROPOSTA">
+                    Proposta
+                  </option>
                   <option value="COMPRA">Fatura de fornecedor</option>
                   <option value="FATURA">Fatura de cliente</option>
                 </select>
@@ -1161,9 +1295,78 @@ function OpportunityPage() {
                 Cancelar
               </button>
             </div>
+            </form>
+          )}
+        {adjudicationTarget && adjudicationForm && (
+          <form
+            className="opportunity-page__form opportunity-page__inline-form"
+            onSubmit={handleAdjudicationSubmit}
+          >
+            <div>
+              <h3 className="opportunity-page__inline-title">Adjudicar proposta</h3>
+              <p className="opportunity-page__inline-subtitle">
+                {adjudicationTarget.filename}
+              </p>
+            </div>
+            <div className="opportunity-page__form-grid">
+              <FinancialInputRow
+                label="Serviços finais"
+                onChange={(value) => updateAdjudicationField('finalServices', value)}
+                value={adjudicationForm.finalServices}
+              />
+              <FinancialInputRow
+                label="Software final"
+                onChange={(value) => updateAdjudicationField('finalSoftware', value)}
+                value={adjudicationForm.finalSoftware}
+              />
+              <FinancialInputRow
+                label="Hardware final"
+                onChange={(value) => updateAdjudicationField('finalHardware', value)}
+                value={adjudicationForm.finalHardware}
+              />
+              <FinancialInputRow
+                label="Manutenção final"
+                onChange={(value) => updateAdjudicationField('finalMaintenance', value)}
+                value={adjudicationForm.finalMaintenance}
+              />
+            </div>
+            <label>
+              <span className="n4a-label">Início entrega/facturação</span>
+              <input
+                className="n4a-input"
+                onChange={(event) =>
+                  updateAdjudicationField('billingStartDate', event.target.value)
+                }
+                required
+                type="date"
+                value={adjudicationForm.billingStartDate}
+              />
+            </label>
+            {adjudicateError && <div className="opportunity-page__form-error">{adjudicateError}</div>}
+            <div className="opportunity-page__form-actions">
+              <button
+                className="n4a-btn n4a-btn--primary"
+                disabled={Boolean(adjudicatingAttachmentId)}
+                type="submit"
+              >
+                {adjudicatingAttachmentId === adjudicationTarget.id
+                  ? 'A adjudicar...'
+                  : 'Confirmar adjudicação'}
+              </button>
+              <button
+                className="n4a-btn n4a-btn--ghost"
+                disabled={Boolean(adjudicatingAttachmentId)}
+                onClick={closeAdjudicationForm}
+                type="button"
+              >
+                Cancelar
+              </button>
+            </div>
           </form>
         )}
-        {adjudicateError && <div className="opportunity-page__form-error">{adjudicateError}</div>}
+        {!adjudicationTarget && adjudicateError && (
+          <div className="opportunity-page__form-error">{adjudicateError}</div>
+        )}
         {opportunity.attachments?.length ? (
           <table className="n4a-table opportunity-page__table">
             <thead>
@@ -1181,16 +1384,29 @@ function OpportunityPage() {
                   <td>
                     <div className="opportunity-page__document-file">
                       <span>{attachment.filename}</span>
-                      {attachment.type === 'PROPOSTA' && !attachment.adjudicada && (
+                      {canAdmin &&
+                        attachment.type === 'PROPOSTA' &&
+                        !attachment.adjudicada &&
+                        opportunity.status !== 'GANHA' && (
                         <button
                           className="n4a-btn n4a-btn--ghost opportunity-page__action"
                           disabled={Boolean(adjudicatingAttachmentId)}
-                          onClick={() => handleAdjudicateAttachment(attachment.id)}
+                          onClick={() => openAdjudicationForm(attachment)}
                           type="button"
                         >
-                          {adjudicatingAttachmentId === attachment.id
-                            ? 'A adjudicar...'
-                            : 'Adjudicar'}
+                          Adjudicar
+                        </button>
+                      )}
+                      {canAdmin && attachment.type === 'PROPOSTA' && attachment.adjudicada && (
+                        <button
+                          className="n4a-btn n4a-btn--ghost opportunity-page__action"
+                          disabled={Boolean(deadjudicatingAttachmentId)}
+                          onClick={() => handleDeadjudicateAttachment(attachment.id)}
+                          type="button"
+                        >
+                          {deadjudicatingAttachmentId === attachment.id
+                            ? 'A desadjudicar...'
+                            : 'Desadjudicar'}
                         </button>
                       )}
                     </div>

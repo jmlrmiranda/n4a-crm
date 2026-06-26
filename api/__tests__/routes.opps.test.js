@@ -4,6 +4,7 @@ process.env.PORT = "18080";
 process.env.CORS_ORIGIN = "http://localhost:3000";
 process.env.UPLOAD_DIR = "/tmp";
 
+const fs = require("fs/promises");
 const request = require("supertest");
 
 jest.mock("../src/prisma", () => ({
@@ -45,6 +46,7 @@ jest.mock("../src/prisma", () => ({
   attachment: {
     findFirst: jest.fn(),
     create: jest.fn(),
+    deleteMany: jest.fn(),
     updateMany: jest.fn(),
     update: jest.fn(),
     findMany: jest.fn()
@@ -135,10 +137,30 @@ function transactionPrisma(created, detail) {
   return {
     opportunity: {
       create: jest.fn().mockResolvedValue(created),
+      update: jest.fn().mockResolvedValue({ id: detail.id }),
       findUnique: jest.fn().mockResolvedValue(detail)
     },
     opportunityStatusHistory: {
       create: jest.fn().mockResolvedValue({ id: "hist1" })
+    },
+    attachment: {
+      findMany: jest.fn().mockResolvedValue([]),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      create: jest.fn().mockResolvedValue({
+        id: "att1",
+        type: "PROPOSTA",
+        filename: "proposal.pdf",
+        adjudicada: false,
+        uploadedAt: "2026-06-22T10:00:00.000Z"
+      }),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      update: jest.fn().mockResolvedValue({
+        id: "att1",
+        type: "PROPOSTA",
+        filename: "proposal.pdf",
+        adjudicada: true,
+        uploadedAt: "2026-06-22T10:00:00.000Z"
+      })
     }
   };
 }
@@ -146,6 +168,7 @@ function transactionPrisma(created, detail) {
 describe("routes opps", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(fs, "unlink").mockResolvedValue(undefined);
     prisma.company.findUnique.mockImplementation(({ where }) => Promise.resolve({
       id: where.id,
       name: where.id === "company2" ? "Cliente Demo" : "N4A",
@@ -159,6 +182,10 @@ describe("routes opps", () => {
       { id: "opp-created" },
       oppFixture({ id: "opp-created", oppNo: "O00001" })
     )));
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe("GET /api/opps", () => {
@@ -406,6 +433,19 @@ describe("routes opps", () => {
       expect(res.status).toBe(404);
     });
 
+    test("422 se tentar GANHA manual", async () => {
+      transitionStatus.mockRejectedValue(new Error("invalid_transition"));
+
+      const res = await request(app)
+        .post("/api/opps/opp1/status")
+        .set("Authorization", auth())
+        .send({ toStatus: "GANHA" });
+
+      expect(res.status).toBe(422);
+      expect(res.body.error).toBe("ganha_requer_adjudicacao");
+      expect(transitionStatus).not.toHaveBeenCalled();
+    });
+
     test("422 se transição inválida", async () => {
       prisma.opportunity.findFirst.mockResolvedValueOnce({ id: "opp1" });
       transitionStatus.mockRejectedValue(new Error("invalid_transition"));
@@ -413,7 +453,7 @@ describe("routes opps", () => {
       const res = await request(app)
         .post("/api/opps/opp1/status")
         .set("Authorization", auth())
-        .send({ toStatus: "GANHA" });
+        .send({ toStatus: "ABERTA" });
 
       expect(res.status).toBe(422);
     });
@@ -443,6 +483,336 @@ describe("routes opps", () => {
         undefined,
         "company1"
       );
+    });
+  });
+
+  describe("attachments e adjudicação", () => {
+    test("upload PROPOSTA substitui a anterior e remove ficheiro antigo", async () => {
+      const tx = transactionPrisma({ id: "opp1" }, oppFixture());
+      tx.attachment.findMany.mockResolvedValue([
+        { id: "old-att", path: "/tmp/old-proposal.pdf" }
+      ]);
+      tx.attachment.deleteMany.mockResolvedValue({ count: 1 });
+      tx.attachment.create.mockResolvedValue({
+        id: "new-att",
+        type: "PROPOSTA",
+        filename: "new-proposal.pdf",
+        adjudicada: false,
+        uploadedAt: "2026-06-26T10:00:00.000Z"
+      });
+      prisma.opportunity.findFirst.mockResolvedValueOnce({ id: "opp1", status: "NEGOCIACAO" });
+      prisma.$transaction.mockImplementationOnce(async (callback) => callback(tx));
+
+      const res = await request(app)
+        .post("/api/opps/opp1/attachments")
+        .set("Authorization", auth())
+        .field("type", "PROPOSTA")
+        .attach("file", Buffer.from("%PDF-1.4\n"), {
+          filename: "new-proposal.pdf",
+          contentType: "application/pdf"
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body).toEqual(expect.objectContaining({
+        id: "new-att",
+        type: "PROPOSTA",
+        adjudicada: false
+      }));
+      expect(tx.attachment.deleteMany).toHaveBeenCalledWith({
+        where: {
+          oppId: "opp1",
+          type: "PROPOSTA"
+        }
+      });
+      expect(tx.attachment.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          oppId: "opp1",
+          type: "PROPOSTA",
+          filename: "new-proposal.pdf",
+          adjudicada: false
+        }),
+        select: expect.any(Object)
+      });
+      expect(fs.unlink).toHaveBeenCalledWith("/tmp/old-proposal.pdf");
+    });
+
+    test("upload PROPOSTA bloqueia se oportunidade já está GANHA", async () => {
+      prisma.opportunity.findFirst.mockResolvedValueOnce({ id: "opp1", status: "GANHA" });
+
+      const res = await request(app)
+        .post("/api/opps/opp1/attachments")
+        .set("Authorization", auth())
+        .field("type", "PROPOSTA")
+        .attach("file", Buffer.from("%PDF-1.4\n"), {
+          filename: "proposal.pdf",
+          contentType: "application/pdf"
+        });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toBe("desadjudique antes de substituir a proposta");
+      expect(fs.unlink).toHaveBeenCalledWith(expect.stringContaining("/tmp/"));
+    });
+
+    test("adjudicar grava venda final, billingStartDate, attachment e histórico", async () => {
+      const detail = oppFixture({
+        status: "GANHA",
+        finalServices: "120.00",
+        finalSoftware: "60.00",
+        finalHardware: "30.00",
+        finalMaintenance: "15.00",
+        billingStartDate: "2026-07-15T00:00:00.000Z",
+        attachments: [
+          {
+            id: "att1",
+            type: "PROPOSTA",
+            filename: "proposal.pdf",
+            adjudicada: true,
+            uploadedAt: "2026-06-26T10:00:00.000Z"
+          }
+        ],
+        statusHistory: [
+          {
+            id: "hist1",
+            fromStatus: "NEGOCIACAO",
+            toStatus: "GANHA",
+            note: "Proposta adjudicada: proposal.pdf",
+            changedBy: "Admin",
+            createdAt: "2026-06-26T10:00:00.000Z"
+          }
+        ]
+      });
+      const tx = transactionPrisma({ id: "opp1" }, detail);
+      prisma.opportunity.findFirst.mockResolvedValueOnce({ id: "opp1", status: "NEGOCIACAO" });
+      prisma.attachment.findFirst.mockResolvedValueOnce({
+        id: "att1",
+        type: "PROPOSTA",
+        filename: "proposal.pdf"
+      });
+      prisma.$transaction.mockImplementationOnce(async (callback) => callback(tx));
+
+      const res = await request(app)
+        .patch("/api/opps/opp1/attachments/att1/adjudicar")
+        .set("Authorization", auth())
+        .send({
+          finalServices: 120,
+          finalSoftware: 60,
+          finalHardware: 30,
+          finalMaintenance: 15,
+          billingStartDate: "2026-07-15"
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(expect.objectContaining({
+        status: "GANHA",
+        finalServices: 120,
+        finalSoftware: 60,
+        finalHardware: 30,
+        finalMaintenance: 15,
+        finalSellPrice: 225
+      }));
+      expect(tx.opportunity.update).toHaveBeenCalledWith({
+        where: { id: "opp1" },
+        data: expect.objectContaining({
+          finalServices: 120,
+          finalSoftware: 60,
+          finalHardware: 30,
+          finalMaintenance: 15,
+          billingStartDate: expect.any(Date),
+          status: "GANHA",
+          archived: false,
+          lossReason: null
+        })
+      });
+      expect(tx.attachment.updateMany).toHaveBeenCalledWith({
+        where: {
+          oppId: "opp1",
+          type: "PROPOSTA",
+          id: { not: "att1" }
+        },
+        data: { adjudicada: false }
+      });
+      expect(tx.attachment.update).toHaveBeenCalledWith({
+        where: { id: "att1" },
+        data: { adjudicada: true }
+      });
+      expect(tx.opportunityStatusHistory.create).toHaveBeenCalledWith({
+        data: {
+          oppId: "opp1",
+          fromStatus: "NEGOCIACAO",
+          toStatus: "GANHA",
+          note: "Proposta adjudicada: proposal.pdf",
+          changedBy: "Admin"
+        }
+      });
+    });
+
+    test("adjudicar é só ADMIN", async () => {
+      const res = await request(app)
+        .patch("/api/opps/opp1/attachments/att1/adjudicar")
+        .set("Authorization", auth(vendorToken))
+        .send({
+          finalServices: 120,
+          finalSoftware: 60,
+          finalHardware: 30,
+          finalMaintenance: 15,
+          billingStartDate: "2026-07-15"
+        });
+
+      expect(res.status).toBe(403);
+    });
+
+    test("adjudicar bloqueia valores finais negativos", async () => {
+      prisma.opportunity.findFirst.mockResolvedValueOnce({ id: "opp1", status: "NEGOCIACAO" });
+      prisma.attachment.findFirst.mockResolvedValueOnce({
+        id: "att1",
+        type: "PROPOSTA",
+        filename: "proposal.pdf"
+      });
+
+      const res = await request(app)
+        .patch("/api/opps/opp1/attachments/att1/adjudicar")
+        .set("Authorization", auth())
+        .send({
+          finalServices: -1,
+          finalSoftware: 60,
+          finalHardware: 30,
+          finalMaintenance: 15,
+          billingStartDate: "2026-07-15"
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("valores finais inválidos");
+    });
+
+    test("adjudicar bloqueia data em falta ou inválida", async () => {
+      prisma.opportunity.findFirst.mockResolvedValueOnce({ id: "opp1", status: "NEGOCIACAO" });
+      prisma.attachment.findFirst.mockResolvedValueOnce({
+        id: "att1",
+        type: "PROPOSTA",
+        filename: "proposal.pdf"
+      });
+
+      const res = await request(app)
+        .patch("/api/opps/opp1/attachments/att1/adjudicar")
+        .set("Authorization", auth())
+        .send({
+          finalServices: 120,
+          finalSoftware: 60,
+          finalHardware: 30,
+          finalMaintenance: 15,
+          billingStartDate: ""
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("billingStartDate inválida");
+    });
+
+    test("desadjudicar volta a NEGOCIACAO e mantém valores finais", async () => {
+      const detail = oppFixture({
+        status: "NEGOCIACAO",
+        finalServices: "120.00",
+        finalSoftware: "60.00",
+        finalHardware: "30.00",
+        finalMaintenance: "15.00",
+        billingStartDate: "2026-07-15T00:00:00.000Z",
+        attachments: [
+          {
+            id: "att1",
+            type: "PROPOSTA",
+            filename: "proposal.pdf",
+            adjudicada: false,
+            uploadedAt: "2026-06-26T10:00:00.000Z"
+          }
+        ]
+      });
+      const tx = transactionPrisma({ id: "opp1" }, detail);
+      prisma.opportunity.findFirst.mockResolvedValueOnce({
+        id: "opp1",
+        status: "GANHA",
+        realCostPrice: "0.00"
+      });
+      prisma.attachment.findFirst
+        .mockResolvedValueOnce({
+          id: "att1",
+          type: "PROPOSTA",
+          adjudicada: true
+        })
+        .mockResolvedValueOnce(null);
+      prisma.$transaction.mockImplementationOnce(async (callback) => callback(tx));
+
+      const res = await request(app)
+        .patch("/api/opps/opp1/attachments/att1/desadjudicar")
+        .set("Authorization", auth());
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(expect.objectContaining({
+        status: "NEGOCIACAO",
+        finalServices: 120,
+        finalSellPrice: 225
+      }));
+      expect(tx.attachment.update).toHaveBeenCalledWith({
+        where: { id: "att1" },
+        data: { adjudicada: false }
+      });
+      expect(tx.opportunity.update).toHaveBeenCalledWith({
+        where: { id: "opp1" },
+        data: {
+          status: "NEGOCIACAO",
+          archived: false,
+          lossReason: null
+        }
+      });
+      expect(tx.opportunityStatusHistory.create).toHaveBeenCalledWith({
+        data: {
+          oppId: "opp1",
+          fromStatus: "GANHA",
+          toStatus: "NEGOCIACAO",
+          note: "Adjudicação revertida",
+          changedBy: "Admin"
+        }
+      });
+    });
+
+    test("desadjudicar bloqueia se já existe custo real", async () => {
+      prisma.opportunity.findFirst.mockResolvedValueOnce({
+        id: "opp1",
+        status: "GANHA",
+        realCostPrice: "1.00"
+      });
+      prisma.attachment.findFirst.mockResolvedValueOnce({
+        id: "att1",
+        type: "PROPOSTA",
+        adjudicada: true
+      });
+
+      const res = await request(app)
+        .patch("/api/opps/opp1/attachments/att1/desadjudicar")
+        .set("Authorization", auth());
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toBe("desadjudicacao_bloqueada_por_custo_real");
+    });
+
+    test("desadjudicar bloqueia se já existem COMPRA/FATURA", async () => {
+      prisma.opportunity.findFirst.mockResolvedValueOnce({
+        id: "opp1",
+        status: "GANHA",
+        realCostPrice: "0.00"
+      });
+      prisma.attachment.findFirst
+        .mockResolvedValueOnce({
+          id: "att1",
+          type: "PROPOSTA",
+          adjudicada: true
+        })
+        .mockResolvedValueOnce({ id: "invoice1" });
+
+      const res = await request(app)
+        .patch("/api/opps/opp1/attachments/att1/desadjudicar")
+        .set("Authorization", auth());
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toBe("desadjudicacao_bloqueada_por_documentos");
     });
   });
 
