@@ -596,3 +596,40 @@ TODO v1.0: automatizar via stage multi-build no Dockerfile (build do web + copy 
 - Corrigir bugs dos testes
 - Ajustar manuais conforme discrepâncias encontradas
 - Fechar v1.0 (tag git v1.0.0)
+
+## Actualização 2026-06-26/27 — correções dos testes + adjudicação
+
+### Feito nesta sessão
+- Incidente Cloudflare 403 resolvido: regra WAF `protect-apis` isentava search mas apanhava CRM; corrigida para isentar `crm.n4a-lab.pt`.
+- Triagem dos testes manuais da Miranda. Bugs corrigidos (commit `b538284`):
+  - password própria: logout limpo + aviso; admin a alterar terceiros mantém sessão
+  - título da oportunidade visível no card do Pipeline
+  - motivo de perda visível no evento PERDIDA da timeline
+- Upload de anexos confirmado a funcionar (já estava corrigido pelo commit `9c76563`).
+- FEATURE: adjudicação de proposta como fluxo canónico para GANHA (commit `3e0b84a`, +10 testes → 107 total).
+
+### Decisão de negócio — ADJUDICAÇÃO
+- Criado ADR-CRM-004 em `docs/adr/ADR-CRM-004-adjudicacao-proposta.md`.
+- A decisão afecta ADR-CRM-001 (modelo financeiro final) e ADR-CRM-002 (transição canónica para GANHA).
+
+### Estado
+- 107 testes a passar.
+- `master` sincronizado com `origin/master`.
+- Produção actualizada com build manual do frontend.
+- Documentação: Manual de Utilizador revisto para rev 1 com adjudicação destacada — PDF fora do repo.
+
+### Próximo (continua o fecho v1.0)
+- Limpeza da DB: backup `pg_dump` primeiro; remover demo/teste; manter Tiago/Jorge/N4A; tirar passwords demo de `api/src/seed.js`.
+- Features adiadas para v1.1 (ver lista abaixo).
+- Decidir quem gere empresas no dia a dia.
+- Fechar v1.0 (tag `v1.0.0`).
+
+### Ideias/features para v1.1 recolhidas dos testes
+- Ver/download da proposta a partir da ficha do cliente.
+- Logo da empresa/cliente via upload de imagem.
+- Painel do dia / ponto de situação.
+- Calendário de momentos com alertas e notificações.
+- Pipeline com fases definidas.
+- Base de dados de contactos (pessoas das empresas).
+- Alerta de discrepância entre valores adjudicados e proposta.
+- Valores próprios por proposta-documento.
