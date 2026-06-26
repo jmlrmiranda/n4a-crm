@@ -981,6 +981,11 @@ function OpportunityPage() {
                         {entryMeta.label}
                       </span>
                       <p>{entry.note || 'Sem nota'}</p>
+                      {entry.toStatus === 'PERDIDA' && opportunity.lossReason && (
+                        <p className="opportunity-page__timeline-loss">
+                          Motivo de perda: {opportunity.lossReason}
+                        </p>
+                      )}
                     </div>
                     <div className="opportunity-page__timeline-meta">
                       <span>{entry.changedBy}</span>

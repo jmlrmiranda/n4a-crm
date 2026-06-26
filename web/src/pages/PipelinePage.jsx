@@ -188,6 +188,9 @@ function PipelinePage() {
                 <div className="pipeline-card__top">
                   <div className="pipeline-card__identity">
                     <span className="pipeline-card__number">{opp.oppNo}</span>
+                    {opp.title && (
+                      <span className="pipeline-card__title">{opp.title}</span>
+                    )}
                     <span className="pipeline-card__client">
                       {opp.client?.name || 'Cliente sem nome'}
                     </span>

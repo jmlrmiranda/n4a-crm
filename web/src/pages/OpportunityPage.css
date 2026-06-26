@@ -279,6 +279,10 @@
   margin-top: 6px;
 }
 
+.opportunity-page__timeline-loss {
+  color: var(--n4a-text-primary);
+}
+
 .opportunity-page__timeline-meta {
   display: grid;
   gap: 4px;

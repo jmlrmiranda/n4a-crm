@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import api from '../api/client.js'
+import { useAuth } from '../contexts/AuthContext.jsx'
 import './NewOppModal.css'
 
 function ChangePasswordModal({ onClose, userId, userName }) {
+  const { logout, user } = useAuth()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const isSelf = Boolean(user?.id && user.id === userId)
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -28,6 +31,16 @@ function ChangePasswordModal({ onClose, userId, userName }) {
 
     try {
       await api.patch(`/api/users/${userId}/password`, { password })
+
+      if (isSelf) {
+        setSuccess('Password alterada. Por segurança, vai iniciar sessão novamente.')
+        setTimeout(() => {
+          logout()
+          window.location.href = '/login'
+        }, 900)
+        return
+      }
+
       setSuccess('Password actualizada')
       setTimeout(onClose, 700)
     } catch (err) {

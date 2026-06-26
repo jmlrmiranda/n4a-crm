@@ -125,6 +125,15 @@
   white-space: nowrap;
 }
 
+.pipeline-card__title {
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pipeline-card__meta,
 .pipeline-card__financials {
   display: flex;
