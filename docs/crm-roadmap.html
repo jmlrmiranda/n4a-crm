@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>N4A CRM — Roadmap</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, 'Inter', sans-serif;
+  background: #0f0f0f;
+  color: #ffffff;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+:root {
+  --mg: #e91e8c;
+  --mg-dim: rgba(233,30,140,0.12);
+  --mg-hover: #c4186f;
+  --surface: #1a1a1a;
+  --surface2: #141414;
+  --border: #2a2a2a;
+  --border2: #3a3a3a;
+  --text: #ffffff;
+  --muted: #888888;
+  --hint: #444444;
+  --success: #4caf50;
+  --warning: #ff9800;
+  --danger: #f44336;
+  --purple: #7f77dd;
+  --purple-dim: rgba(127,119,221,0.12);
+  --amber: #ef9f27;
+  --amber-dim: rgba(239,159,39,0.12);
+  --teal: #1d9e75;
+  --teal-dim: rgba(29,158,117,0.12);
+  --gray-dim: rgba(255,255,255,0.06);
+}
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.logo { font-size: 18px; font-weight: 700; color: var(--mg); letter-spacing: -0.5px; }
+.logo span { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 8px; }
+.legend { display: flex; gap: 16px; align-items: center; }
+.leg { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot-done { background: var(--teal); }
+.dot-wip { background: var(--purple); }
+.dot-todo { background: var(--amber); }
+.dot-future { background: var(--hint); }
+.stats-bar {
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 24px;
+  display: flex;
+  gap: 24px;
+}
+.stat { font-size: 12px; color: var(--muted); }
+.stat strong { color: var(--text); font-weight: 500; margin-right: 4px; }
+main { padding: 24px; max-width: 1100px; }
+.area { margin-bottom: 32px; }
+.area-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.area-title { font-size: 14px; font-weight: 500; }
+.area-count { font-size: 11px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1px 8px; }
+.chevron { color: var(--muted); font-size: 12px; transition: transform 0.2s; }
+.area.collapsed .chevron { transform: rotate(-90deg); }
+.area.collapsed .items { display: none; }
+.items { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.item:hover { border-color: var(--border2); background: #1e1e1e; }
+.item.selected { border-color: var(--mg); }
+.item-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.item-name { font-size: 13px; font-weight: 500; }
+.item-badge {
+  font-size: 10px; font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.04em; padding: 2px 7px; border-radius: 10px; white-space: nowrap;
+}
+.badge-done { background: var(--teal-dim); color: var(--teal); }
+.badge-wip  { background: var(--purple-dim); color: var(--purple); }
+.badge-todo { background: var(--amber-dim); color: var(--amber); }
+.badge-future { background: var(--gray-dim); color: var(--muted); }
+.item-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+.item-priority { font-size: 10px; color: var(--hint); margin-top: 2px; }
+.item-priority.high { color: var(--danger); }
+.item-priority.med { color: var(--warning); }
+.detail-panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; margin-bottom: 24px; overflow: hidden;
+}
+.detail-panel.hidden { display: none; }
+.detail-header {
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+}
+.detail-title { font-size: 15px; font-weight: 500; }
+.detail-area { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.detail-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; padding: 0; line-height: 1; }
+.detail-close:hover { color: var(--text); }
+.detail-body { padding: 16px 20px; }
+.detail-body p { color: var(--muted); font-size: 13px; line-height: 1.6; margin-bottom: 12px; }
+.detail-meta { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.meta-item { font-size: 11px; }
+.meta-label { color: var(--hint); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+.meta-value { color: var(--text); font-weight: 500; }
+.add-idea {
+  background: none; border: 1px dashed var(--border2); border-radius: 8px;
+  padding: 10px 14px; color: var(--muted); cursor: pointer; font-size: 12px;
+  text-align: left; transition: border-color 0.15s, color 0.15s; width: 100%; margin-top: 8px;
+}
+.add-idea:hover { border-color: var(--mg); color: var(--mg); }
+.idea-form { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: none; margin-top: 8px; }
+.idea-form.open { display: block; }
+.idea-form input, .idea-form textarea, .idea-form select {
+  width: 100%; background: #1a1a1a; border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 13px; padding: 8px 10px; margin-bottom: 8px; font-family: inherit; outline: none;
+}
+.idea-form input:focus, .idea-form textarea:focus, .idea-form select:focus { border-color: var(--mg); }
+.idea-form textarea { resize: vertical; min-height: 60px; }
+.idea-form-btns { display: flex; gap: 8px; }
+.btn-save { background: var(--mg); color: #fff; border: none; border-radius: 6px; padding: 7px 14px; font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; }
+.btn-save:hover { background: var(--mg-hover); }
+.btn-cancel { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 7px 14px; font-size: 12px; color: var(--muted); cursor: pointer; font-family: inherit; }
+.btn-cancel:hover { color: var(--text); }
+</style>
+</head>
+<body>
+<header>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="logo">N4A <span>CRM Roadmap</span></div>
+    <div style="font-size:11px;color:var(--hint)">actualizado 2026-06-23 — DEV FECHADO p/ testes: +título, histórico cliente, match propostas. Próximo: limpar DB + v1.0</div>
+  </div>
+  <div class="legend">
+    <div class="leg"><div class="dot dot-done"></div>feito</div>
+    <div class="leg"><div class="dot dot-wip"></div>em curso</div>
+    <div class="leg"><div class="dot dot-todo"></div>a fazer</div>
+    <div class="leg"><div class="dot dot-future"></div>futuro</div>
+  </div>
+</header>
+<div class="stats-bar">
+  <div class="stat"><strong id="s-done">0</strong>feitos</div>
+  <div class="stat"><strong id="s-wip">0</strong>em curso</div>
+  <div class="stat"><strong id="s-todo">0</strong>a fazer</div>
+  <div class="stat"><strong id="s-future">0</strong>futuro</div>
+  <div class="stat"><strong id="s-total">0</strong>total</div>
+</div>
+<main>
+<div id="detail-panel" class="detail-panel hidden">
+  <div class="detail-header">
+    <div>
+      <div class="detail-title" id="d-title"></div>
+      <div class="detail-area" id="d-area"></div>
+    </div>
+    <button class="detail-close" onclick="closeDetail()">×</button>
+  </div>
+  <div class="detail-body" id="d-body"></div>
+</div>
+<div id="areas-container"></div>
+</main>
+<script>
+const DATA = {
+  areas: [
+    {
+      id: "migracao",
+      title: "Migração — concluída 2026-06-23",
+      items: [
+        { id:"m1", name:"Backup DB legacy", status:"done", desc:"pg_dump da DB do legacy antes de qualquer alteração.", priority:"", notes:"Backups em /Users/server/backups/n4a_crm_legacy_20260623_085425.sql e _085524.sql", api:"", ui:"" },
+        { id:"m2", name:"Backup uploads legacy", status:"done", desc:"Copiar ficheiros de upload do legacy para pasta de backup.", priority:"", notes:"Concluído na sessão de migração 2026-06-23.", api:"", ui:"" },
+        { id:"m3", name:"Decidir: migrar dados ou arrancar limpo", status:"done", desc:"Decisão tomada: arrancar limpo com utilizadores reais e dados novos.", priority:"", notes:"Schema novo com decomposição financeira (ADR-CRM-001) incompatível com legacy. Seed demo + fixup tenant.", api:"", ui:"" },
+        { id:"m4", name:"Desligar containers legacy", status:"done", desc:"docker compose down no legacy após backup confirmado.", priority:"", notes:"Legacy desligado. Só containers n4a-crm-api e n4a-crm-db activos.", api:"", ui:"" },
+        { id:"m5", name:"Apontar tráfego para o novo", status:"done", desc:"nginx webserver aponta crm.n4a-lab.pt para 192.168.100.112:8080. Docker exposto em 8080.", priority:"", notes:"Frontend servido pela API Express. CORS_ORIGIN=https://crm.n4a-lab.pt.", api:"", ui:"" },
+        { id:"m6", name:"Validação pós-migração", status:"wip", desc:"Acesso externo OK (Cloudflare resolvido). Falta checklist completa MIGRACAO_LEGACY.md fase 5.", priority:"low", notes:"Cloudflare resolvido — CRM acessível em https://crm.n4a-lab.pt. Cadeia Internet→Cloudflare→Tunnel→nginx→8080 confirmada. Falta só a checklist formal fase 5.", api:"", ui:"" },
+        { id:"m7", name:"Actualizar control-plane registry", status:"done", desc:"n4a-crm: migration_status: active, environment: production, ports: 8080.", priority:"", notes:"apps.yaml actualizado na sessão 2026-06-23.", api:"", ui:"" },
+      ]
+    },
+    {
+      id: "opps",
+      title: "Oportunidades",
+      items: [
+        { id:"o1", name:"Criar oportunidade", status:"done", desc:"Modal com cliente, tipo, vendedor e data de fecho.", priority:"", notes:"Funcional. Modal abre do pipeline.", api:"POST /api/opps", ui:"NewOppModal.jsx" },
+        { id:"o2", name:"Listar e filtrar pipeline", status:"done", desc:"Lista com filtro por estado e toggle de arquivadas.", priority:"", notes:"Badges de estado com cores. Filtro funcional.", api:"GET /api/opps", ui:"PipelinePage.jsx" },
+        { id:"o3", name:"Detalhe de oportunidade", status:"done", desc:"Resumo, financeiro, histórico, contactos e documentos.", priority:"", notes:"Todas as secções funcionais.", api:"GET /api/opps/:id", ui:"OpportunityPage.jsx" },
+        { id:"o4", name:"Transições de estado", status:"done", desc:"Painel inline com transições válidas, nota e motivo de perda.", priority:"", notes:"Testado end-to-end. Transaccional campo+histórico.", api:"POST /api/opps/:id/status", ui:"OpportunityPage.jsx" },
+        { id:"o5", name:"Editar valores financeiros", status:"done", desc:"Edição inline com recálculo em tempo real.", priority:"", notes:"Testado com valores reais.", api:"PATCH /api/opps/:id", ui:"OpportunityPage.jsx" },
+        { id:"o6", name:"Upload de documentos", status:"done", desc:"Upload PDF com tipo PROPOSTA/COMPRA/FATURA.", priority:"", notes:"Testado com PDF real.", api:"POST /api/opps/:id/attachments", ui:"OpportunityPage.jsx" },
+        { id:"o7", name:"Adicionar contacto", status:"done", desc:"Formulário inline com data, canal e nota.", priority:"", notes:"Canal: Reunião/Telefone/Email/Outro.", api:"POST /api/opps/:id/contacts", ui:"OpportunityPage.jsx" },
+        { id:"o8", name:"Adjudicar proposta", status:"done", desc:"Badge Adjudicada em magenta. Remove das restantes.", priority:"", notes:"Testado com PDF real.", api:"PATCH /api/opps/:id/attachments/:attId/adjudicar", ui:"OpportunityPage.jsx" },
+        { id:"o9", name:"Arquivar oportunidade", status:"done", desc:"Toggle archived no header. Botão muda para Desarquivar.", priority:"", notes:"Testado. Estados terminais bloqueados.", api:"PATCH /api/opps/:id", ui:"OpportunityPage.jsx" },
+        { id:"o10", name:"Duplicar oportunidade", status:"future", desc:"Cria nova oportunidade com os mesmos dados base.", priority:"", notes:"Não existe na API. Requer novo endpoint.", api:"", ui:"" },
+        { id:"o11", name:"Exportar ficha PDF", status:"done", desc:"Ficha interna PDF da oportunidade (=d4). Cliente, financeiro estimado e final, custos e margens.", priority:"", notes:"Concluído e validado 2026-06-23. pdfkit. Botão PDF na OpportunityPage.", api:"GET /api/opps/:id/pdf", ui:"OpportunityPage.jsx" },
+        { id:"o12", name:"Título da oportunidade", status:"done", desc:"Campo título curto na oportunidade. Edição inline. Usado no histórico e no match de propostas.", priority:"", notes:"Concluído 2026-06-23. migration add_opportunity_title (title String?). Campo no NewOppModal.", api:"POST/PATCH /api/opps", ui:"OpportunityPage.jsx, NewOppModal.jsx" },
+        { id:"o13", name:"Match de propostas anteriores", status:"done", desc:"Painel 'Propostas anteriores semelhantes': mesmo cliente + mesmo tipo de venda, com título e valores. Deteção de discrepâncias entre propostas (ex: renovação de suporte).", priority:"", notes:"Concluído e validado 2026-06-23. Match testado (2025→2026 mostra valor anterior).", api:"GET /api/opps/:id/similar", ui:"OpportunityPage.jsx" },
+        { id:"o14", name:"OCR de faturas + deteção de incongruências", status:"future", desc:"No upload de faturas (cliente e fornecedor), extrair valores via OCR e cruzar com os valores financeiros do CRM. Sinalizar discrepâncias entre o que está na fatura e o registado na oportunidade (ex: custo real vs fatura de fornecedor, venda final vs fatura de cliente).", priority:"high", notes:"COMPLEXIDADE ALTA — candidata a v1.1/v2, não v1.0. Camadas: (1) extração de texto de PDF nativo (fácil); (2) OCR de faturas digitalizadas + identificar total/linhas de forma fiável (difícil, layouts variáveis); (3) cruzar com campos financeiros e sinalizar (médio). Risco de falsos alarmes — exige validação cuidada. Ferramentas a avaliar: tesseract, ou serviço de OCR. Decisão arquitectural: OCR no backend vs serviço externo; onde guardar os valores extraídos.", api:"", ui:"" },
+      ]
+    },
+    {
+      id: "clients",
+      title: "Clientes",
+      items: [
+        { id:"c1", name:"Listar clientes", status:"done", desc:"Tabela com nº, nome, NIF, responsável, email, telefone.", priority:"", notes:"5 clientes do seed.", api:"GET /api/clients", ui:"ClientsPage.jsx" },
+        { id:"c2", name:"Histórico de oportunidades", status:"done", desc:"Dados do cliente + histórico cronológico de oportunidades com título, venda estimada e venda final. Base para comparar propostas ao longo do tempo.", priority:"", notes:"Enriquecido 2026-06-23 com título e valores finais, ordem desc.", api:"GET /api/clients/:id", ui:"ClientPage.jsx" },
+        { id:"c3", name:"Criar cliente", status:"done", desc:"Modal com todos os campos. clientNo gerado auto.", priority:"", notes:"Testado. Inserção local na lista.", api:"POST /api/clients", ui:"NewClientModal.jsx" },
+        { id:"c4", name:"Editar cliente", status:"done", desc:"Edição inline com PATCH. Só ADMIN.", priority:"", notes:"Testado com morada e descrição.", api:"PATCH /api/clients/:id", ui:"ClientPage.jsx" },
+        { id:"c5", name:"Histórico de actividade", status:"future", desc:"Timeline de todas as interacções com o cliente.", priority:"", notes:"Requer agregação de várias tabelas.", api:"", ui:"" },
+      ]
+    },
+    {
+      id: "users",
+      title: "Utilizadores",
+      items: [
+        { id:"u1", name:"Listar utilizadores", status:"done", desc:"Tabela com nome, email, role, estado activo.", priority:"", notes:"Admin only.", api:"GET /api/users", ui:"UsersPage.jsx" },
+        { id:"u2", name:"Activar / desactivar", status:"done", desc:"Toggle isActive com PATCH inline.", priority:"", notes:"Actualiza lista localmente.", api:"PATCH /api/users/:id", ui:"UsersPage.jsx" },
+        { id:"u3", name:"Criar utilizador", status:"done", desc:"Modal com nome, email, password, role.", priority:"", notes:"Testado. Utilizadores reais criados em produção: tiago.cerqueira@n4a.pt e jorge.miranda@n4a.pt (ADMIN).", api:"POST /api/users", ui:"NewUserModal.jsx" },
+        { id:"u4", name:"Alterar password", status:"done", desc:"Modal reutilizável: próprio utilizador no topbar, ADMIN altera por linha na UsersPage.", priority:"", notes:"Concluído 2026-06-23. Validação 8+ chars + confirmação. commit c87afd2.", api:"PATCH /api/users/:id/password", ui:"ChangePasswordModal.jsx" },
+      ]
+    },
+    {
+      id: "dashboard",
+      title: "Dashboard e reporting",
+      items: [
+        { id:"d1", name:"KPIs + forecast", status:"done", desc:"Pipeline, receita, margem, win rate, forecast 30/60/90 dias.", priority:"", notes:"Dados reais. Forecast ponderado por estado.", api:"GET /api/dashboard", ui:"DashboardPage.jsx" },
+        { id:"d2", name:"Por vendedor e tipo", status:"done", desc:"Tabelas de performance por vendedor e tipo de venda.", priority:"", notes:"Testado com seed real.", api:"GET /api/dashboard", ui:"DashboardPage.jsx" },
+        { id:"d3", name:"Filtros por período", status:"done", desc:"Date pickers De/Até no dashboard. Filtra métricas históricas GANHA/PERDIDA por updatedAt. Pipeline e forecast sem filtro.", priority:"", notes:"Concluído 2026-06-23. commit 8879d66.", api:"GET /api/dashboard?dateFrom&dateTo", ui:"DashboardPage.jsx" },
+        { id:"d4", name:"Ficha PDF de oportunidade", status:"done", desc:"Ficha interna PDF por oportunidade: cliente, estado, financeiro estimado (sempre) e final (só GANHA), com custos e margens. Marca DOCUMENTO INTERNO.", priority:"", notes:"Concluído e VALIDADO por geração real 2026-06-23. pdfkit@0.19.1. Visibilidade confirmada (vendedor 404 noutra opp, admin 200). commits e09e299 + validação.", api:"GET /api/opps/:id/pdf", ui:"OpportunityPage.jsx" },
+        { id:"d5", name:"Exportar para Excel", status:"done", desc:"Export XLSX no frontend com exceljs. Sheets: KPIs, Por Vendedor, Por Tipo.", priority:"", notes:"Concluído 2026-06-23. xlsx descartado (vuln high). commit 8879d66.", api:"", ui:"DashboardPage.jsx" },
+      ]
+    },
+    {
+      id: "multiempresa",
+      title: "Multi-empresa",
+      items: [
+        { id:"me1", name:"Schema multi-tenant", status:"done", desc:"companyId em User, Client, Opportunity. Tabelas dependentes isoladas via oppId.", priority:"", notes:"Company como entidade central. Isolamento efectivo nas entidades principais.", api:"", ui:"" },
+        { id:"me2", name:"Auth com empresa no JWT", status:"done", desc:"Login assina JWT com companyId. Middleware requireTenant valida empresa activa.", priority:"", notes:"Implementado em routes.auth.js e middleware.", api:"", ui:"" },
+        { id:"me3", name:"Dashboard por empresa", status:"done", desc:"Todas as agregações filtradas por req.companyId.", priority:"", notes:"Implementado em routes.dashboard.js.", api:"GET /api/dashboard", ui:"DashboardPage.jsx" },
+        { id:"me4", name:"Selector de empresa na UI", status:"done", desc:"Selector de empresa para utilizadores N4A_SUPPORT no header.", priority:"", notes:"AuthContext.jsx + Layout.jsx", api:"", ui:"Layout.jsx" },
+        { id:"me5", name:"Gestão de empresas", status:"done", desc:"UI completa CompaniesPage: listar, criar, editar, desactivar tenants. Só N4A_ADMIN. CRUD backend completo.", priority:"", notes:"Concluído 2026-06-23. N4A_ADMIN ganhou switch-company. support@n4a.pt promovido a N4A_ADMIN. commit 898c33c.", api:"GET/POST/PATCH/DELETE /admin/companies", ui:"CompaniesPage.jsx" },
+      ]
+    },
+    {
+      id: "infra",
+      title: "Infraestrutura",
+      items: [
+        { id:"i1", name:"Docker + entrypoint", status:"done", desc:"Dockerfile, docker-compose, migration automática.", priority:"", notes:"Testado end-to-end. Migration aplicada no arranque.", api:"", ui:"" },
+        { id:"i2", name:"97 testes a passar", status:"done", desc:"5 suites: finance, transitions, auth, clients, opps.", priority:"", notes:"Jest + supertest. 1.4s. Subiu de 88 para 97.", api:"", ui:"" },
+        { id:"i3", name:"Git + remote GitHub", status:"done", desc:"Repositório ligado a github.com/jmlrmiranda/n4a-crm (privado, SSH). Todos os commits com backup remoto. git push no protocolo de fecho.", priority:"", notes:"Remote configurado 2026-06-23 — resolve risco arrastado de não haver backup. master com tracking para origin/master.", api:"", ui:"" },
+        { id:"i4", name:"Porta Vite fixada", status:"done", desc:"vite.config.js com port:5173 strictPort:true.", priority:"", notes:"Elimina problema de CORS por porta variável.", api:"", ui:"" },
+        { id:"i5", name:".env.docker produção", status:"done", desc:"JWT_SECRET e CRM_DB_PASSWORD com valores reais gerados.", priority:"", notes:"Não commitado. Fora do git.", api:"", ui:"" },
+        { id:"i6", name:"Plano de migração", status:"done", desc:"docs/MIGRACAO_LEGACY.md com fases, backup e rollback.", priority:"", notes:"Pronto a executar na próxima sessão.", api:"", ui:"" },
+        { id:"i7", name:"Testes de integração routes", status:"done", desc:"clients e opps com mock de DB e transitions.", priority:"", notes:"88 testes totais.", api:"", ui:"" },
+        { id:"i8", name:"CI/CD pipeline", status:"future", desc:"Testes automáticos (97) em cada push via GitHub Actions.", priority:"low", notes:"Agora possível — repo já está no GitHub. Workflow .github/workflows com npm test.", api:"", ui:"" },
+        { id:"i9", name:"Migração legacy → novo", status:"done", desc:"Executar plano. Desligar legacy. Apontar tráfego.", priority:"", notes:"Concluído 2026-06-23. CRM em produção em https://crm.n4a-lab.pt.", api:"", ui:"" },
+        { id:"i10", name:"shared-auth integração", status:"future", desc:"Substituir JWT próprio pelo shared-auth quando existir.", priority:"", notes:"shared-auth está como planned no registry.", api:"", ui:"" },
+      ]
+    }
+  ]
+};
+
+let selectedItem = null;
+
+function statusLabel(s) {
+  return { done:"feito", wip:"em curso", todo:"a fazer", future:"futuro" }[s] || s;
+}
+function priorityLabel(p) {
+  return { high:"prioridade alta", med:"prioridade média", "":"" }[p] || p;
+}
+
+function renderAll() {
+  const container = document.getElementById("areas-container");
+  container.innerHTML = "";
+  let counts = { done:0, wip:0, todo:0, future:0 };
+
+  DATA.areas.forEach(area => {
+    area.items.forEach(i => counts[i.status] = (counts[i.status]||0) + 1);
+    const div = document.createElement("div");
+    div.className = "area";
+    div.id = "area-" + area.id;
+    const doneCount = area.items.filter(i => i.status === "done").length;
+    const total = area.items.length;
+    div.innerHTML = `
+      <div class="area-header" onclick="toggleArea('${area.id}')">
+        <div class="area-title">${area.title}</div>
+        <div class="area-count">${doneCount}/${total}</div>
+        <div class="chevron">▾</div>
+      </div>
+      <div class="items" id="items-${area.id}"></div>
+      <button class="add-idea" onclick="openIdeaForm('${area.id}')">+ nova ideia para ${area.title.toLowerCase()}</button>
+      <div class="idea-form" id="form-${area.id}">
+        <input type="text" placeholder="Nome da funcionalidade" id="fname-${area.id}">
+        <textarea placeholder="Descrição e notas..." id="fdesc-${area.id}"></textarea>
+        <select id="fstatus-${area.id}">
+          <option value="todo">a fazer</option>
+          <option value="future">futuro</option>
+          <option value="wip">em curso</option>
+        </select>
+        <div class="idea-form-btns">
+          <button class="btn-save" onclick="saveIdea('${area.id}')">Guardar ideia</button>
+          <button class="btn-cancel" onclick="closeIdeaForm('${area.id}')">Cancelar</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(div);
+    const itemsDiv = div.querySelector(`#items-${area.id}`);
+    area.items.forEach(item => {
+      const el = document.createElement("div");
+      el.className = "item" + (selectedItem === item.id ? " selected" : "");
+      el.id = "item-" + item.id;
+      el.onclick = () => showDetail(item, area.title);
+      el.innerHTML = `
+        <div class="item-header">
+          <div class="item-name">${item.name}</div>
+          <div class="item-badge badge-${item.status}">${statusLabel(item.status)}</div>
+        </div>
+        <div class="item-desc">${item.desc}</div>
+        ${item.priority ? `<div class="item-priority ${item.priority}">${priorityLabel(item.priority)}</div>` : ""}
+      `;
+      itemsDiv.appendChild(el);
+    });
+  });
+
+  document.getElementById("s-done").textContent = counts.done || 0;
+  document.getElementById("s-wip").textContent = counts.wip || 0;
+  document.getElementById("s-todo").textContent = counts.todo || 0;
+  document.getElementById("s-future").textContent = counts.future || 0;
+  document.getElementById("s-total").textContent = Object.values(counts).reduce((a,b)=>a+b,0);
+}
+
+function toggleArea(id) {
+  document.getElementById("area-" + id).classList.toggle("collapsed");
+}
+
+function showDetail(item, areaTitle) {
+  selectedItem = item.id;
+  document.querySelectorAll(".item").forEach(el => el.classList.remove("selected"));
+  const el = document.getElementById("item-" + item.id);
+  if (el) el.classList.add("selected");
+  document.getElementById("d-title").textContent = item.name;
+  document.getElementById("d-area").textContent = areaTitle + " · " + statusLabel(item.status);
+  let html = `<p>${item.desc}</p>`;
+  if (item.notes) html += `<p>${item.notes}</p>`;
+  html += `<div class="detail-meta">`;
+  if (item.priority) html += `<div class="meta-item"><div class="meta-label">Prioridade</div><div class="meta-value" style="color:${item.priority==="high"?"var(--danger)":"var(--warning)"}">${priorityLabel(item.priority)}</div></div>`;
+  if (item.api) html += `<div class="meta-item"><div class="meta-label">Endpoint API</div><div class="meta-value" style="font-family:monospace;font-size:12px">${item.api}</div></div>`;
+  if (item.ui) html += `<div class="meta-item"><div class="meta-label">Componente UI</div><div class="meta-value" style="font-family:monospace;font-size:12px">${item.ui}</div></div>`;
+  html += `</div>`;
+  document.getElementById("d-body").innerHTML = html;
+  document.getElementById("detail-panel").classList.remove("hidden");
+  document.getElementById("detail-panel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function closeDetail() {
+  selectedItem = null;
+  document.getElementById("detail-panel").classList.add("hidden");
+  document.querySelectorAll(".item").forEach(el => el.classList.remove("selected"));
+}
+
+function openIdeaForm(areaId) {
+  document.querySelectorAll(".idea-form").forEach(f => f.classList.remove("open"));
+  document.getElementById("form-" + areaId).classList.add("open");
+  document.getElementById("fname-" + areaId).focus();
+}
+
+function closeIdeaForm(areaId) {
+  document.getElementById("form-" + areaId).classList.remove("open");
+  document.getElementById("fname-" + areaId).value = "";
+  document.getElementById("fdesc-" + areaId).value = "";
+}
+
+function saveIdea(areaId) {
+  const name = document.getElementById("fname-" + areaId).value.trim();
+  const desc = document.getElementById("fdesc-" + areaId).value.trim();
+  const status = document.getElementById("fstatus-" + areaId).value;
+  if (!name) return;
+  const area = DATA.areas.find(a => a.id === areaId);
+  const newId = areaId + "_" + Date.now();
+  area.items.push({ id: newId, name, status, desc: desc || "Ideia nova — detalhar.", priority: "", notes: "Adicionado manualmente.", api: "", ui: "" });
+  closeIdeaForm(areaId);
+  renderAll();
+  setTimeout(() => {
+    const el = document.getElementById("item-" + newId);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, 100);
+}
+
+renderAll();
+</script>
+</body>
+</html>
